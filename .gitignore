@@ -1,0 +1,23 @@
+# Virtual environments
+venv_honda_poc/
+venv/
+.venv/
+
+# Environment secrets
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temp storage
+/tmp/
