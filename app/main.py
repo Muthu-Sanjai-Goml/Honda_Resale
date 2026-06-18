@@ -36,11 +36,12 @@ async def lifespan(app: FastAPI):
     logger.info("═" * 50)
     logger.info(f"  {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"  Environment : {settings.ENVIRONMENT}")
-    logger.info(f"  LLM Model   : {settings.LLM_MODEL}")
+    logger.info(f"  AWS Region  : {settings.AWS_REGION}")
+    logger.info(f"  Bedrock Model: {settings.BEDROCK_MODEL_ID}")
     logger.info(f"  Storage     : {settings.BASE_STORAGE_DIR}")
 
-    api_key_set = bool(settings.ANTHROPIC_API_KEY and settings.ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
-    logger.info(f"  API Key     : {'✓ configured' if api_key_set else '✗ NOT SET'}")
+    aws_key_set = bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_ACCESS_KEY_ID != "your_aws_access_key_here")
+    logger.info(f"  AWS Creds   : {'✓ configured' if aws_key_set else '⚠ using default credential chain'}")
     logger.info("═" * 50)
 
     yield

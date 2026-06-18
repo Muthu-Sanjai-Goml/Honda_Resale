@@ -16,11 +16,13 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 class Settings(BaseSettings):
     """Application settings with sensible defaults for local development."""
 
-    # --- API Keys ---
-    ANTHROPIC_API_KEY: str = ""
+    # --- AWS Bedrock Config ---
+    AWS_REGION: str = "us-east-1"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
 
     # --- LLM Config ---
-    LLM_MODEL: str = "claude-sonnet-4-6"
+    BEDROCK_MODEL_ID: str = "anthropic.claude-sonnet-4-6-20250514-v1:0"
     LLM_MAX_TOKENS: int = 2000
 
     # --- Storage Paths (cross-platform) ---

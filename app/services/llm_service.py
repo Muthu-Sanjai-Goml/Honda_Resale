@@ -1,6 +1,7 @@
 """
-LLM service — handles Anthropic API calls with multimodal support.
+LLM service — handles AWS Bedrock API calls with multimodal support.
 
+Uses boto3 to invoke the Bedrock Runtime (Anthropic Claude on Bedrock).
 Reads images from disk, encodes to base64, builds the message payload,
 and parses the JSON response with a single retry on parse failure.
 """
@@ -12,7 +13,8 @@ import mimetypes
 import re
 from pathlib import Path
 
-import anthropic
+import boto3
+from botocore.exceptions import ClientError, BotoCoreError
 
 from app.config import settings
 
@@ -26,6 +28,23 @@ class LLMServiceError(Exception):
         self.error_code = error_code
         self.message = message
         super().__init__(message)
+
+
+def _get_bedrock_client():
+    """
+    Create and return a Bedrock Runtime client.
+
+    Uses explicit credentials if provided in settings (AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY), otherwise falls back to the default boto3
+    credential chain (env vars, ~/.aws/credentials, IAM role, etc.).
+    """
+    kwargs = {"region_name": settings.AWS_REGION}
+
+    if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+        kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+        kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+
+    return boto3.client("bedrock-runtime", **kwargs)
 
 
 def _read_image_as_base64(image_path: str) -> tuple[str, str]:
@@ -69,9 +88,110 @@ def _strip_markdown_fences(text: str) -> str:
     return text.strip()
 
 
+def _invoke_bedrock(messages: list[dict]) -> str:
+    """
+    Invoke the Bedrock Converse API and return the raw text response.
+
+    Parameters
+    ----------
+    messages : list[dict]
+        Messages in the Bedrock Converse API format.
+
+    Returns
+    -------
+    str
+        The raw text content from the model response.
+
+    Raises
+    ------
+    LLMServiceError
+        On API call failure.
+    """
+    client = _get_bedrock_client()
+
+    try:
+        response = client.converse(
+            modelId=settings.BEDROCK_MODEL_ID,
+            messages=messages,
+            inferenceConfig={
+                "maxTokens": settings.LLM_MAX_TOKENS,
+            },
+        )
+    except (ClientError, BotoCoreError) as e:
+        logger.error(f"Bedrock API error: {e}")
+        raise LLMServiceError(
+            error_code="LLM_API_ERROR",
+            message=f"AWS Bedrock API call failed: {str(e)}",
+        )
+
+    # Extract text from Converse response
+    output = response.get("output", {})
+    message = output.get("message", {})
+    content_blocks = message.get("content", [])
+
+    for block in content_blocks:
+        if "text" in block:
+            return block["text"]
+
+    raise LLMServiceError(
+        error_code="LLM_EMPTY_RESPONSE",
+        message="Bedrock returned a response with no text content.",
+    )
+
+
+def _build_converse_content(prompt: str, image_paths: list[str] | None = None) -> list[dict]:
+    """
+    Build content blocks for the Bedrock Converse API.
+
+    Parameters
+    ----------
+    prompt : str
+        The text prompt.
+    image_paths : list[str] | None
+        Optional list of absolute paths to images.
+
+    Returns
+    -------
+    list[dict]
+        Content blocks in Bedrock Converse format.
+    """
+    content_blocks: list[dict] = []
+
+    if image_paths:
+        for img_path in image_paths:
+            try:
+                b64_data, media_type = _read_image_as_base64(img_path)
+
+                # Map MIME type to Bedrock format string
+                format_map = {
+                    "image/jpeg": "jpeg",
+                    "image/png": "png",
+                    "image/webp": "webp",
+                    "image/gif": "gif",
+                }
+                img_format = format_map.get(media_type, "jpeg")
+
+                content_blocks.append(
+                    {
+                        "image": {
+                            "format": img_format,
+                            "source": {
+                                "bytes": base64.standard_b64decode(b64_data),
+                            },
+                        },
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to read image {img_path}: {e}")
+                continue
+
+    content_blocks.append({"text": prompt})
+    return content_blocks
+
+
 async def call_llm(prompt: str, image_paths: list[str] | None = None) -> dict:
     """
-    Call the Anthropic API with a text prompt and optional images.
+    Call the AWS Bedrock Converse API with a text prompt and optional images.
 
     Parameters
     ----------
@@ -91,48 +211,12 @@ async def call_llm(prompt: str, image_paths: list[str] | None = None) -> dict:
         On API call failure or JSON parse failure after retry.
     """
 
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-
     # Build content blocks: images first, then text
-    content_blocks: list[dict] = []
-
-    if image_paths:
-        for img_path in image_paths:
-            try:
-                b64_data, media_type = _read_image_as_base64(img_path)
-                content_blocks.append(
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": b64_data,
-                        },
-                    }
-                )
-            except Exception as e:
-                logger.warning(f"Failed to read image {img_path}: {e}")
-                continue
-
-    content_blocks.append({"type": "text", "text": prompt})
-
+    content_blocks = _build_converse_content(prompt, image_paths)
     messages = [{"role": "user", "content": content_blocks}]
 
     # --- First attempt ---
-    try:
-        response = client.messages.create(
-            model=settings.LLM_MODEL,
-            max_tokens=settings.LLM_MAX_TOKENS,
-            messages=messages,
-        )
-    except anthropic.APIError as e:
-        logger.error(f"Anthropic API error: {e}")
-        raise LLMServiceError(
-            error_code="LLM_API_ERROR",
-            message=f"Anthropic API call failed: {str(e)}",
-        )
-
-    raw_text = response.content[0].text
+    raw_text = _invoke_bedrock(messages)
     cleaned = _strip_markdown_fences(raw_text)
 
     try:
@@ -142,31 +226,22 @@ async def call_llm(prompt: str, image_paths: list[str] | None = None) -> dict:
 
     # --- Retry: ask for JSON only ---
     retry_messages = messages + [
-        {"role": "assistant", "content": raw_text},
+        {"role": "assistant", "content": [{"text": raw_text}]},
         {
             "role": "user",
-            "content": (
-                "Your previous response was not valid JSON. "
-                "Please respond with ONLY the JSON object — no markdown fences, "
-                "no commentary, no explanations. Just the raw JSON."
-            ),
+            "content": [
+                {
+                    "text": (
+                        "Your previous response was not valid JSON. "
+                        "Please respond with ONLY the JSON object — no markdown fences, "
+                        "no commentary, no explanations. Just the raw JSON."
+                    ),
+                }
+            ],
         },
     ]
 
-    try:
-        retry_response = client.messages.create(
-            model=settings.LLM_MODEL,
-            max_tokens=settings.LLM_MAX_TOKENS,
-            messages=retry_messages,
-        )
-    except anthropic.APIError as e:
-        logger.error(f"Anthropic API retry error: {e}")
-        raise LLMServiceError(
-            error_code="LLM_API_ERROR",
-            message=f"Anthropic API retry call failed: {str(e)}",
-        )
-
-    retry_text = retry_response.content[0].text
+    retry_text = _invoke_bedrock(retry_messages)
     retry_cleaned = _strip_markdown_fences(retry_text)
 
     try:

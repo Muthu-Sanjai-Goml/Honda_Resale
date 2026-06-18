@@ -123,7 +123,7 @@ async def create_valuation(
     1. Validate inputs
     2. Validate & save images
     3. Build prompt
-    4. Call Anthropic LLM
+    4. Call AWS Bedrock LLM
     5. Parse & persist result
     """
 
