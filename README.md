@@ -5,13 +5,14 @@ Submit vehicle details and optional photos to receive a structured valuation wit
 
 ## Tech Stack
 
-| Layer         | Technology                  |
-|---------------|-----------------------------|
-| Framework     | FastAPI + Uvicorn           |
-| LLM           | Anthropic Claude claude-sonnet-4-6 |
-| Validation    | Pydantic v2                 |
-| Config        | python-dotenv               |
-| Storage       | Local filesystem + JSON     |
+| Layer         | Technology                          |
+|---------------|-------------------------------------|
+| Framework     | FastAPI + Uvicorn                   |
+| LLM           | AWS Bedrock (Claude via Converse API) |
+| AWS SDK       | boto3                               |
+| Validation    | Pydantic v2                         |
+| Config        | python-dotenv + pydantic-settings   |
+| Storage       | Local filesystem + JSON             |
 
 ## Quick Start
 
@@ -27,19 +28,31 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Open `.env` and add your Anthropic API key:
+Open `.env` and configure your AWS credentials:
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
+```env
+# AWS Bedrock Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_aws_access_key_here
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key_here
+
+# Bedrock Model ID (Claude on Bedrock)
+BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-6-20250514-v1:0
 ```
 
-### 3. Run the server
+> **Note:** If `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` are left empty, boto3 falls back to the default credential chain (`~/.aws/credentials`, IAM role, EC2 instance profile, etc.).
+
+### 3. Enable Bedrock model access
+
+In the [AWS Bedrock console](https://console.aws.amazon.com/bedrock/), ensure you have **model access enabled** for the Claude model in your chosen region.
+
+### 4. Run the server
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 4. Open Swagger UI
+### 5. Open Swagger UI
 
 Navigate to **[http://localhost:8000/docs](http://localhost:8000/docs)** to explore and test all endpoints interactively.
 
@@ -86,7 +99,8 @@ The valuation response includes:
 | `FILE_TOO_LARGE`     | 400  | Image exceeds 5 MB                  |
 | `TOO_MANY_IMAGES`    | 400  | More than 10 images submitted       |
 | `LLM_PARSE_ERROR`    | 500  | Invalid JSON from LLM after retry   |
-| `LLM_API_ERROR`      | 500  | Anthropic API call failure          |
+| `LLM_API_ERROR`      | 500  | AWS Bedrock API call failure        |
+| `LLM_EMPTY_RESPONSE` | 500  | Bedrock returned no text content    |
 | `VALUATION_NOT_FOUND`| 404  | Valuation ID not in storage         |
 
 ## Project Structure
@@ -95,12 +109,12 @@ The valuation response includes:
 honda-valuation-backend/
 ├── app/
 │   ├── main.py                  # FastAPI app, middleware, routers
-│   ├── config.py                # Settings from .env
+│   ├── config.py                # Settings from .env (AWS + storage config)
 │   ├── routes/
 │   │   ├── valuation.py         # POST & GET valuation endpoints
 │   │   └── health.py            # Health check endpoint
 │   ├── services/
-│   │   └── llm_service.py       # Anthropic API client
+│   │   └── llm_service.py       # AWS Bedrock client (Converse API)
 │   ├── models/
 │   │   ├── request_models.py    # Input validation schemas
 │   │   └── response_models.py   # Output schemas
