@@ -115,6 +115,11 @@ class ValuationResponse(BaseModel):
         description="Odometer reading in km",
         json_schema_extra={"example": 35000},
     )
+    number_of_owners: int = Field(
+        ...,
+        description="Number of previous owners",
+        json_schema_extra={"example": 1},
+    )
     estimated_resale_value: EstimatedResaleValue
     confidence_score: float = Field(
         ...,
