@@ -1,0 +1,187 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-surface: var(--surface);
+  --color-honda-red: var(--honda-red);
+  --color-honda-red-hover: var(--honda-red-hover);
+  --color-honda-accent: var(--honda-accent);
+  --color-slate-ink: var(--slate-ink);
+  --color-neutral-line: var(--neutral-line);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-muted: var(--neutral-muted);
+  --color-neutral-faint: var(--neutral-faint);
+
+  --color-score-green: var(--score-green);
+  --color-score-amber: var(--score-amber);
+  --color-score-orange: var(--score-orange);
+  --color-score-red: var(--score-red);
+
+  --font-display: "Barlow Condensed", system-ui, sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #1a2b4a;
+  --card: #ffffff;
+  --card-foreground: #1a2b4a;
+  --popover: #ffffff;
+  --popover-foreground: #1a2b4a;
+  --primary: #cc0000;
+  --primary-foreground: #ffffff;
+  --secondary: #f7f6f3;
+  --secondary-foreground: #1a2b4a;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #1a2b4a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #cc0000;
+
+  --surface: #f7f6f3;
+  --honda-red: #cc0000;
+  --honda-red-hover: #a80000;
+  --honda-accent: #e60121;
+  --slate-ink: #1a2b4a;
+  --neutral-line: #e5e7eb;
+  --neutral-soft: #f3f4f6;
+  --neutral-muted: #6b7280;
+  --neutral-faint: #9ca3af;
+
+  /* shadcn sidebar tokens */
+  --sidebar-background: #ffffff;
+  --sidebar-foreground: #1a2b4a;
+  --sidebar-primary: #cc0000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #faf0f1;
+  --sidebar-accent-foreground: #cc0000;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #e60121;
+  --sidebar: #ffffff;
+
+  --score-green: #16a34a;
+  --score-amber: #d97706;
+  --score-orange: #ea580c;
+  --score-red: #dc2626;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #ffffff;
+    color: var(--slate-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+@utility section-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neutral-muted);
+}
+
+@utility hvp-card {
+  background-color: #ffffff;
+  border: 1px solid var(--neutral-line);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+@media (min-width: 640px) {
+  .hvp-card {
+    padding: 18px;
+  }
+}
+
+@utility page-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  color: var(--slate-ink);
+}
+
+@utility kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--neutral-line);
+  border: 1px solid var(--neutral-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+@media (min-width: 768px) {
+  .kpi-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@utility kpi-cell {
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+@utility kpi-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--neutral-muted);
+}
+
+@utility kpi-value {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--slate-ink);
+  line-height: 1.1;
+}
