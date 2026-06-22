@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { HondaLogo } from "./HondaLogo";
@@ -10,30 +10,60 @@ const STEPS = [
   "Calculating your Health Score & Value Range",
 ];
 
-type Props = { onDone: () => void };
+type Props = { isDone: boolean; onDone: () => void };
 
-export function Step3Analysis({ onDone }: Props) {
-  const [stepIdx, setStepIdx] = useState(0);
+export function Step3Analysis({ isDone, onDone }: Props) {
   const [progress, setProgress] = useState(0);
+  const currentProgressRef = useRef(0);
+  const isDoneRef = useRef(isDone);
+  const doneTimeRef = useRef<number | null>(null);
+  const doneProgressRef = useRef<number>(0);
+
+  // Keep refs in sync
+  useEffect(() => {
+    isDoneRef.current = isDone;
+  }, [isDone]);
 
   useEffect(() => {
-    const stepInterval = setInterval(() => {
-      setStepIdx((s) => Math.min(s + 1, STEPS.length));
-    }, 900);
     const start = performance.now();
+    const EXPECTED_DURATION = 14300; // 14.3 seconds API timing
+    const FILL_DURATION = 600; // time to fill to 100% once API is done
     let raf = 0;
+
     const tick = (now: number) => {
-      const p = Math.min(100, ((now - start) / 4000) * 100);
-      setProgress(p);
-      if (p < 100) raf = requestAnimationFrame(tick);
-      else setTimeout(onDone, 350);
+      if (!isDoneRef.current) {
+        const elapsed = now - start;
+        const p = Math.min(95, (elapsed / EXPECTED_DURATION) * 95);
+        currentProgressRef.current = p;
+        setProgress(p);
+        raf = requestAnimationFrame(tick);
+      } else {
+        // API has completed
+        if (doneTimeRef.current === null) {
+          doneTimeRef.current = now;
+          doneProgressRef.current = currentProgressRef.current;
+        }
+        const elapsedSinceDone = now - doneTimeRef.current;
+        const progressLeft = 100 - doneProgressRef.current;
+        const p = Math.min(100, doneProgressRef.current + (elapsedSinceDone / FILL_DURATION) * progressLeft);
+        currentProgressRef.current = p;
+        setProgress(p);
+        
+        if (p < 100) {
+          raf = requestAnimationFrame(tick);
+        } else {
+          setTimeout(onDone, 350);
+        }
+      }
     };
+
     raf = requestAnimationFrame(tick);
     return () => {
-      clearInterval(stepInterval);
       cancelAnimationFrame(raf);
     };
   }, [onDone]);
+
+  const stepIdx = progress >= 100 ? 4 : Math.floor(progress / 25);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-10 py-16 text-center">

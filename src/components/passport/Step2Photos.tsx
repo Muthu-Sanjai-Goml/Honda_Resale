@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { ArrowLeft, ArrowRight, Camera, Check, RotateCw, Sun } from "lucide-react";
 
@@ -10,7 +10,7 @@ export type PhotoSlotId =
   | "dashboard"
   | "seat";
 
-export type Photos = Partial<Record<PhotoSlotId, { url: string; name: string }>>;
+export type Photos = Partial<Record<PhotoSlotId, { url: string; name: string; file?: File }>>;
 
 const SLOTS: { id: PhotoSlotId; label: string }[] = [
   { id: "front", label: "Front View" },
@@ -86,21 +86,73 @@ function Tile({
 export function Step2Photos({ photos, onChange, onBack, onNext }: Props) {
   const count = useMemo(() => Object.keys(photos).length, [photos]);
   const canContinue = count >= 4;
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
+
+  const loadDemoPhotos = async () => {
+    setIsLoadingDemo(true);
+    try {
+      const demoMapping: { slot: PhotoSlotId; fileName: string }[] = [
+        { slot: "front", fileName: "front.avif" },
+        { slot: "rear", fileName: "back.avif" },
+        { slot: "left", fileName: "left.avif" },
+        { slot: "right", fileName: "right.avif" },
+        { slot: "dashboard", fileName: "dash.avif" },
+        { slot: "seat", fileName: "seat.avif" },
+      ];
+
+      const newPhotos = { ...photos };
+
+      for (const item of demoMapping) {
+        const response = await fetch(`/honda_photos/${item.fileName}`);
+        if (!response.ok) throw new Error(`Failed to load ${item.fileName}`);
+        const blob = await response.blob();
+        const file = new File([blob], item.fileName, { type: "image/avif" });
+        const url = URL.createObjectURL(file);
+        newPhotos[item.slot] = { url, name: item.fileName, file };
+      }
+
+      onChange(newPhotos);
+    } catch (error) {
+      console.error("Failed to load demo photos:", error);
+    } finally {
+      setIsLoadingDemo(false);
+    }
+  };
 
   const handleSelect = (id: PhotoSlotId) => (file: File) => {
     const url = URL.createObjectURL(file);
-    onChange({ ...photos, [id]: { url, name: file.name } });
+    onChange({ ...photos, [id]: { url, name: file.name, file } });
   };
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-[32px] sm:text-[34px] font-semibold leading-[1.1] text-[color:var(--slate-ink)]">
-          Upload Vehicle Photos
-        </h1>
-        <p className="mt-2 text-[15px] text-[color:var(--neutral-muted)]">
-          Clear photos help our AI assess your Honda&apos;s condition accurately.
-        </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-[color:var(--neutral-muted)] hover:text-[color:var(--slate-ink)] transition-colors"
+        >
+          <ArrowLeft size={15} /> Back to Details
+        </button>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="font-display text-[32px] sm:text-[34px] font-semibold leading-[1.1] text-[color:var(--slate-ink)]">
+              Upload Vehicle Photos
+            </h1>
+            <p className="mt-2 text-[15px] text-[color:var(--neutral-muted)]">
+              Clear photos help our AI assess your Honda&apos;s condition accurately.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={isLoadingDemo}
+            onClick={loadDemoPhotos}
+            className="flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[color:var(--honda-red)] bg-white px-5 text-[14px] font-medium text-[color:var(--honda-red)] shadow-sm transition hover:bg-[color:var(--honda-red)]/5 disabled:opacity-50"
+          >
+            <Camera size={16} />
+            {isLoadingDemo ? "Loading..." : "Load Demo Photos"}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-[8px] border border-[#F5D174] bg-[#FEF9EC] px-4 py-3 text-[13px] text-[color:var(--slate-ink)]">

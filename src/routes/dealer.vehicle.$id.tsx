@@ -1,13 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bookmark, ChevronLeft, Phone } from "lucide-react";
 import { useSubmissions, type Submission } from "@/lib/submissions";
-import { VehicleIdentityBar } from "@/components/passport/report/VehicleIdentityBar";
-import { ValueHero } from "@/components/passport/report/ValueHero";
-import { ConditionCards } from "@/components/passport/report/ConditionCards";
-import { ScoreBreakdownChart } from "@/components/passport/report/ScoreBreakdownChart";
-import { MarketComparisonChart } from "@/components/passport/report/MarketComparisonChart";
-import { PhotoFindings } from "@/components/passport/report/PhotoFindings";
-import { PriceAdjustmentRuler } from "@/components/passport/report/PriceAdjustmentRuler";
+import { Step4Report } from "@/components/passport/Step4Report";
 import { VehiclePhotoGallery } from "@/components/passport/report/VehiclePhotoGallery";
 import { defaultPhotos } from "@/lib/submissions";
 
@@ -102,14 +96,8 @@ function VehicleDetail() {
         </div>
       </div>
 
-      <VehicleIdentityBar r={s.report} />
-      <ValueHero r={s.report} />
+      <Step4Report report={s.report} />
       <VehiclePhotoGallery photos={s.photos ?? defaultPhotos(s.report.vehicle.model)} />
-      <ConditionCards r={s.report} />
-      <ScoreBreakdownChart r={s.report} />
-      <MarketComparisonChart r={s.report} />
-      <PhotoFindings r={s.report} />
-      <PriceAdjustmentRuler r={s.report} />
     </div>
   );
 }

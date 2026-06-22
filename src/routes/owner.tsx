@@ -9,8 +9,8 @@ export const Route = createFileRoute("/owner")({
 });
 
 const NAV: { to: "/owner" | "/owner/history" | "/owner/new"; label: string; icon: typeof Car; exact?: boolean }[] = [
-  { to: "/owner", label: "My Vehicles", icon: Car, exact: true },
-  { to: "/owner/history", label: "Passport History", icon: History },
+  // { to: "/owner", label: "My Vehicles", icon: Car, exact: true },
+  // { to: "/owner/history", label: "Passport History", icon: History },
   { to: "/owner/new", label: "New Passport", icon: PlusCircle },
 ];
 
@@ -132,31 +132,33 @@ function OwnerLayout() {
           </div>
         </header>
 
-        <main className="flex-1 px-3 py-4 pb-20 sm:px-5 sm:py-5 md:pb-5">
+        <main className={`flex-1 px-3 py-4 sm:px-5 sm:py-5 ${NAV.length > 1 ? "pb-20 md:pb-5" : "pb-4 md:pb-5"}`}>
           <Outlet />
         </main>
 
         {/* Bottom tab bar - mobile only */}
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-[color:var(--neutral-line)] bg-white/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
-          {NAV.map((n) => {
-            const active = isActive(n.to, n.exact);
-            const Icon = n.icon;
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition ${
-                  active
-                    ? "text-[color:var(--honda-red)]"
-                    : "text-[color:var(--neutral-muted)]"
-                }`}
-              >
-                <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                {n.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {NAV.length > 1 && (
+          <nav className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-[color:var(--neutral-line)] bg-white/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+            {NAV.map((n) => {
+              const active = isActive(n.to, n.exact);
+              const Icon = n.icon;
+              return (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition ${
+                    active
+                      ? "text-[color:var(--honda-red)]"
+                      : "text-[color:var(--neutral-muted)]"
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                  {n.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </div>
   );

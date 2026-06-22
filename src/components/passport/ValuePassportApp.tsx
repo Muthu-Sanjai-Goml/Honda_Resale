@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 // removed unused LogOut import
 import { Header } from "./Header";
@@ -9,7 +9,9 @@ import { Step3Analysis } from "./Step3Analysis";
 import { Step4Report } from "./Step4Report";
 import { useSubmissions } from "@/lib/submissions";
 import { useSession } from "@/lib/session";
-import { mockReport } from "@/lib/passport-mock";
+import type { ValuationReport } from "@/lib/types";
+import { submitVehicleValuation } from "@/service/valuation";
+import { toast } from "sonner";
 
 const INITIAL_DETAILS: VehicleDetails = {
   vehicleType: "Four-Wheeler",
@@ -36,7 +38,32 @@ export function ValuePassportApp({ onSignOut, onDone }: Props) {
   const { add } = useSubmissions();
   const { session } = useSession();
 
-  const handleAnalysisDone = () => {
+  const [generatedReport, setGeneratedReport] = useState<ValuationReport | null>(null);
+  const [activeReport, setActiveReport] = useState<ValuationReport | null>(null);
+  const [valuationError, setValuationError] = useState<string | null>(null);
+  const [analysisAnimDone, setAnalysisAnimDone] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
+
+  const startValuation = async () => {
+    setValuationError(null);
+    setGeneratedReport(null);
+    setAnalysisAnimDone(false);
+    
+    try {
+      const report = await submitVehicleValuation(details, photos);
+      setGeneratedReport(report);
+    } catch (err: any) {
+      console.error("Valuation failed:", err);
+      const msg = err?.response?.data?.message || err?.message || "Connection error";
+      setValuationError(msg);
+      toast.error(`Valuation API call failed: ${msg}.`);
+    }
+  };
+
+  const handleAnalysisDone = (reportToSave: ValuationReport) => {
     if (session?.role === "owner") {
       const uploaded = Object.entries(photos).map(([k, v]) => ({
         label: k.charAt(0).toUpperCase() + k.slice(1),
@@ -46,25 +73,21 @@ export function ValuePassportApp({ onSignOut, onDone }: Props) {
         ownerName: session.name,
         phone: "+91 98xxxx0000",
         photos: uploaded.length ? uploaded : undefined,
-        report: {
-          ...mockReport,
-          vehicle: {
-            ...mockReport.vehicle,
-            model: details.model || mockReport.vehicle.model,
-            variant: details.variant || mockReport.vehicle.variant,
-            year: parseInt(details.year) || mockReport.vehicle.year,
-            fuel: details.fuel || mockReport.vehicle.fuel,
-            transmission: details.transmission || mockReport.vehicle.transmission,
-            odometer: parseInt(details.odometer) || mockReport.vehicle.odometer,
-            owner: details.owners || mockReport.vehicle.owner,
-            city: details.city || mockReport.vehicle.city,
-            service: details.service || mockReport.vehicle.service,
-          },
-        },
+        report: reportToSave,
       });
     }
+
+    setActiveReport(reportToSave);
     setStep(4);
   };
+
+  useEffect(() => {
+    if (analysisAnimDone) {
+      if (generatedReport) {
+        handleAnalysisDone(generatedReport);
+      }
+    }
+  }, [analysisAnimDone, generatedReport]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -107,7 +130,10 @@ export function ValuePassportApp({ onSignOut, onDone }: Props) {
                 photos={photos}
                 onChange={setPhotos}
                 onBack={() => setStep(1)}
-                onNext={() => setStep(3)}
+                onNext={() => {
+                  startValuation();
+                  setStep(3);
+                }}
               />
             </motion.div>
           )}
@@ -119,24 +145,64 @@ export function ValuePassportApp({ onSignOut, onDone }: Props) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              <Step3Analysis onDone={handleAnalysisDone} />
+              {valuationError ? (
+                <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 py-16 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[color:var(--score-red)]/10 text-[color:var(--score-red)]">
+                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  
+                  <h2 className="font-display text-[26px] font-semibold text-[color:var(--slate-ink)]">
+                    Valuation Failed
+                  </h2>
+                  
+                  <div className="w-full max-w-[460px] rounded-[8px] border border-[color:var(--score-red)]/20 bg-[color:var(--score-red)]/5 p-4 text-[14px] text-[color:var(--score-red)]">
+                    <p className="font-semibold mb-1 text-left">API Error Details:</p>
+                    <p className="font-mono text-[12px] break-all text-left">{valuationError}</p>
+                  </div>
+                  
+                  <div className="flex gap-4 mt-2">
+                    <button
+                      onClick={() => {
+                        setStep(2);
+                        setValuationError(null);
+                      }}
+                      className="flex h-[44px] items-center justify-center rounded-[8px] border border-[color:var(--neutral-line)] bg-white px-5 text-[14px] font-medium text-[color:var(--slate-ink)] hover:bg-[color:var(--surface)] transition"
+                    >
+                      Back to Photos
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        startValuation();
+                      }}
+                      className="flex h-[44px] items-center justify-center rounded-[8px] bg-[color:var(--honda-red)] px-5 text-[14px] font-medium text-white hover:bg-[color:var(--honda-red-hover)] transition"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Step3Analysis isDone={!!generatedReport} onDone={() => setAnalysisAnimDone(true)} />
+              )}
             </motion.div>
           )}
-          {step === 4 && (
+          {step === 4 && activeReport && (
             <motion.div
               key="s4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <Step4Report />
+              <Step4Report report={activeReport} />
               {onDone && (
                 <div className="mt-8 flex justify-center">
                   <button
                     onClick={onDone}
                     className="rounded-[8px] bg-[color:var(--honda-red)] px-5 py-2.5 text-[13px] font-medium text-white hover:opacity-90"
                   >
-                    Back to my dashboard
+                    Create Another Passport
                   </button>
                 </div>
               )}
