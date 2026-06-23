@@ -201,6 +201,7 @@ def _invoke_bedrock(messages: list[dict]) -> str:
             messages=messages,
             inferenceConfig={
                 "maxTokens": settings.LLM_MAX_TOKENS,
+                "temperature": settings.LLM_TEMPERATURE,
             },
         )
     except (ClientError, BotoCoreError) as e:
