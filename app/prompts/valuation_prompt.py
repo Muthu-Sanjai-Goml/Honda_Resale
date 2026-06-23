@@ -54,14 +54,52 @@ def build_valuation_prompt(
         The formatted prompt string.
     """
 
-    # Pretty-print the vehicle model name
-    model_display = "Honda City" if vehicle_model == "honda_city" else "Honda Activa"
+    # Pretty-print the vehicle model name and determine vehicle type
+    if vehicle_model == "honda_city":
+        model_display = "Honda City"
+        vehicle_type = "sedan (four-wheeler car)"
+    else:
+        model_display = "Honda Activa"
+        vehicle_type = "scooter (two-wheeler)"
 
-    # Reference pricing by model
-    # if vehicle_model == "honda_city":
-    #     price_ref = "INR 10,00,000 – 17,00,000 (ex-showroom, 2019–2023 models)"
-    # else:
-    #     price_ref = "INR 65,000 – 90,000 (ex-showroom, 2019–2023 models)"
+    # Pricing guidance — strict benchmarks for accurate valuation
+    if vehicle_model == "honda_city":
+        pricing_guidance = ""
+    else:
+        # Honda Activa — strict Indian resale market benchmarks
+        pricing_guidance = f"""
+═══════════════════════════════════════════
+STRICT PRICING BENCHMARKS (HONDA ACTIVA)
+═══════════════════════════════════════════
+The Honda Activa is a MASS-MARKET SCOOTER (two-wheeler). It is a commodity
+vehicle with HIGH SUPPLY in the used market. Do NOT overvalue it.
+
+Ex-showroom prices when new (approximate):
+• Activa STD       : ₹70,000 – ₹75,000
+• Activa DLX       : ₹75,000 – ₹82,000
+• Activa 6G        : ₹72,000 – ₹80,000
+• Activa 125 (STD) : ₹80,000 – ₹88,000
+• Activa 125 (DLX) : ₹85,000 – ₹95,000
+
+AGGRESSIVE DEPRECIATION CURVE for scooters in India:
+• Year 1  : 25–30% depreciation (resale ≈ ₹50,000 – ₹65,000)
+• Year 2  : 35–40% depreciation (resale ≈ ₹42,000 – ₹55,000)
+• Year 3  : 45–50% depreciation (resale ≈ ₹35,000 – ₹45,000)
+• Year 4  : 55–60% depreciation (resale ≈ ₹28,000 – ₹38,000)
+• Year 5  : 60–65% depreciation (resale ≈ ₹22,000 – ₹30,000)
+• Year 6  : 65–72% depreciation (resale ≈ ₹18,000 – ₹25,000)
+• Year 7+ : 72–80% depreciation (resale ≈ ₹12,000 – ₹20,000)
+• Year 10+: 80–90% depreciation (resale ≈ ₹5,000 – ₹12,000)
+
+CRITICAL RULES:
+- The resale value of an Activa should NEVER exceed ₹65,000 unless it is
+  less than 1 year old with negligible kilometres.
+- A 3-year-old Activa in "good" condition typically sells for ₹30,000–₹40,000.
+- Multiple owners, high km, or missing service history must FURTHER reduce the price.
+- Keep the low-to-high range TIGHT (within ₹5,000–₹8,000 spread).
+- Be realistic: check OLX, CarDekho, BikeWale-style Indian marketplace pricing.
+- Do NOT inflate the value. Err on the LOWER side if uncertain.
+"""
 
     # Service history section
     if service_history:
@@ -83,9 +121,10 @@ Base your service assessment solely on the vehicle's age and odometer reading.
 Flag "no_service_history" in fallback_flags.
 """
 
-    # Image section
+    # Image section — different assessment criteria for car vs scooter
     if image_count > 0:
-        image_section = f"""
+        if vehicle_model == "honda_city":
+            image_section = f"""
 IMAGES: {image_count} photo(s) attached above.
 Carefully examine each photo and assess:
 - **Exterior**: body damage, paint condition, rust, dents, scratches, panel gaps
@@ -93,6 +132,22 @@ Carefully examine each photo and assess:
 - **Tyres**: tread depth, uneven wear, age
 - **Signs of accident repair**: mismatched paint, filler, uneven panels
 - **Modifications**: aftermarket parts, altered exhaust, etc.
+
+If images are blurry, dark, or low quality, flag "low_quality_images".
+"""
+        else:
+            # Honda Activa — scooter-specific assessment
+            image_section = f"""
+IMAGES: {image_count} photo(s) attached above.
+This is a **scooter** (two-wheeler). Carefully examine each photo and assess:
+- **Body panels**: scratches, cracks, dents, paint fade, panel alignment
+- **Seat condition**: tears, sagging, re-upholstered, fading
+- **Handlebar & mirrors**: damage, wobble, aftermarket grips
+- **Tyres**: tread depth, sidewall cracks, uneven wear, age
+- **Engine & exhaust**: visible oil leaks, rust on silencer, kick-start lever condition
+- **Storage compartment (under-seat)**: latch condition, visible damage
+- **Signs of accident/fall damage**: scrape marks on side panels, bent footrest, cracked indicators
+- **Modifications**: aftermarket exhaust, crash guards, LED lights, etc.
 
 If images are blurry, dark, or low quality, flag "low_quality_images".
 """
@@ -104,7 +159,7 @@ Flag "no_images" in fallback_flags.
 """
 
     prompt = f"""You are an expert automotive appraiser specialising in the Indian used-vehicle market.
-You are evaluating a **{model_display} {variant}** for resale valuation.
+You are evaluating a **{model_display} {variant}** ({vehicle_type}) for resale valuation.
 
 ═══════════════════════════════════════════
 VEHICLE DETAILS
@@ -120,8 +175,7 @@ VEHICLE DETAILS
 • Number of Owners: {number_of_owners}
 • Number of Owners: {number_of_owners}
 
-
-
+{pricing_guidance}
 ═══════════════════════════════════════════
 PHOTO ASSESSMENT
 ═══════════════════════════════════════════
