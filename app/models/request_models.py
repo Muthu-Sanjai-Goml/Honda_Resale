@@ -86,6 +86,13 @@ class ValuationRequest(BaseModel):
         description="Transmission type (manual or automatic)",
         json_schema_extra={"example": "manual"},
     )
+    number_of_owners: int = Field(
+        ...,
+        ge=1,
+        le=10,
+        description="Number of previous owners",
+        json_schema_extra={"example": 1},
+    )
     service_history: Optional[str] = Field(
         default=None,
         max_length=2000,

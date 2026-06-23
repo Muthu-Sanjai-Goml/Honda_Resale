@@ -16,6 +16,7 @@ def build_valuation_prompt(
     location: str,
     fuel_type: str,
     transmission: str,
+    number_of_owners: int,
     service_history: str | None,
     image_count: int,
 ) -> str:
@@ -40,6 +41,8 @@ def build_valuation_prompt(
         Fuel type (petrol, diesel, electric, cng).
     transmission : str
         Transmission type (manual, automatic).
+    number_of_owners : int
+        Number of previous owners.
     service_history : str | None
         Free-text service history or None.
     image_count : int
@@ -55,10 +58,10 @@ def build_valuation_prompt(
     model_display = "Honda City" if vehicle_model == "honda_city" else "Honda Activa"
 
     # Reference pricing by model
-    if vehicle_model == "honda_city":
-        price_ref = "INR 10,00,000 – 17,00,000 (ex-showroom, 2019–2023 models)"
-    else:
-        price_ref = "INR 65,000 – 90,000 (ex-showroom, 2019–2023 models)"
+    # if vehicle_model == "honda_city":
+    #     price_ref = "INR 10,00,000 – 17,00,000 (ex-showroom, 2019–2023 models)"
+    # else:
+    #     price_ref = "INR 65,000 – 90,000 (ex-showroom, 2019–2023 models)"
 
     # Service history section
     if service_history:
@@ -71,6 +74,7 @@ Evaluate the service history for:
 - Any major repairs or component replacements
 - Missed service intervals
 - Whether serviced at authorised Honda dealer vs. third-party
+- don't be  very strict with the valuation, have a lenient approach and have around 10-15k buffer in the max estimate.
 """
     else:
         service_section = """
@@ -113,11 +117,10 @@ VEHICLE DETAILS
 • Location       : {location}
 • Fuel Type      : {fuel_type}
 • Transmission   : {transmission}
+• Number of Owners: {number_of_owners}
+• Number of Owners: {number_of_owners}
 
-═══════════════════════════════════════════
-REFERENCE PRICING
-═══════════════════════════════════════════
-{model_display} ex-showroom reference: {price_ref}
+
 
 ═══════════════════════════════════════════
 PHOTO ASSESSMENT
@@ -129,32 +132,13 @@ SERVICE HISTORY ASSESSMENT
 ═══════════════════════════════════════════
 {service_section}
 
-═══════════════════════════════════════════
-DEPRECIATION RULES (Indian Market)
-═══════════════════════════════════════════
-Expected annual usage: 10,000–12,000 km/year.
-
-• Year 1      : 15–20% depreciation
-• Years 2–3   : 10–12% per year
-• Years 4–5   : 8–10% per year
-• Year 5+     : 5–8% per year
-
-Adjust the final estimate up or down based on:
-- Condition (from photos)
-- Service quality and regularity
-- Odometer vs. expected mileage for age
-- Location and demand in that city
-- Fuel type and transmission preference
 
 ═══════════════════════════════════════════
 CONFIDENCE SCORING
 ═══════════════════════════════════════════
-Assign a confidence score from 0 to 100:
-• 80–100 : All inputs present and internally consistent
-• 60–79  : Minor gaps (e.g., no service history but photos available)
-• 40–59  : Multiple gaps or inconsistencies
-• Below 40: Major data missing (no photos AND no service history)
-
+Assign a confidence score from 0 to 100: based on how confident you are about the estimated price based on the informations provided. 
+if there are any data unavailable or is of low quality or if the service history sounds very uncertain.
+dont be very sensitive about the confidence score, just give your best estimate based on the information provided.
 ═══════════════════════════════════════════
 FALLBACK FLAGS
 ═══════════════════════════════════════════

@@ -14,14 +14,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.models.request_models import FuelType, Transmission, VehicleModel
 from app.models.response_models import ErrorResponse, ValuationResponse
 from app.prompts.valuation_prompt import build_valuation_prompt
-from app.services.llm_service import LLMServiceError, call_llm
+from app.services.llm_service import LLMServiceError, call_llm, validate_b64_image_data
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +59,57 @@ def _save_results(data: dict) -> None:
     },
     summary="Submit Vehicle for Valuation",
     description=(
-        "Submit vehicle details and optional photos to receive an AI-powered "
-        "resale valuation. Images are validated for type (jpg/png/webp) and "
-        "size (max 5 MB each, max 10 images)."
+        "Submit vehicle details and optional base64-encoded photos to receive an "
+        "AI-powered resale valuation. Images must be passed as base64 strings from "
+        "the frontend, not as raw file uploads."
     ),
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "vehicle_model": {"type": "string", "example": "honda_city"},
+                            "variant": {"type": "string", "example": "V"},
+                            "manufacture_year": {"type": "integer", "example": 2022},
+                            "registration_year": {"type": "integer", "example": 2022},
+                            "odometer_km": {"type": "integer", "example": 55000},
+                            "location": {"type": "string", "example": "Coimbatore"},
+                            "fuel_type": {"type": "string", "example": "petrol"},
+                            "transmission": {"type": "string", "example": "manual"},
+                            "number_of_owners": {"type": "integer", "example": 1},
+                            "service_history": {"type": "string", "example": "The service history is clean and regularly serviced."},
+                            "images": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "example": [
+                                    "data:image/jpeg;base64,/9j/4AAQSkZJRgABA..."
+                                ]
+                            }
+                        }
+                    },
+                    "example": {
+                        "vehicle_model": "honda_city",
+                        "variant": "V",
+                        "manufacture_year": 2022,
+                        "registration_year": 2022,
+                        "odometer_km": 55000,
+                        "location": "Coimbatore",
+                        "fuel_type": "petrol",
+                        "transmission": "manual",
+                        "number_of_owners": 1,
+                        "service_history": "The service history is clean and regularly serviced.",
+                        "images": [
+                            "data:image/jpeg;base64,/9j/4AAQSkZJRgABA..."
+                        ]
+                    }
+                }
+            }
+        }
+    },
 )
 async def create_valuation(
-    request: Request,
     vehicle_model: VehicleModel = Form(
         ...,
         description="Honda vehicle model",
@@ -106,6 +150,13 @@ async def create_valuation(
         description="Transmission type",
         json_schema_extra={"example": "manual"},
     ),
+    number_of_owners: int = Form(
+        ..., 
+        ge=1,
+        le=10,
+        description="Number of previous owners",
+        json_schema_extra={"example": 1},
+    ),
     service_history: Optional[str] = Form(
         default=None,
         description="Free-text service history (optional)",
@@ -113,9 +164,14 @@ async def create_valuation(
             "example": "Regular service at Honda dealer every 10,000 km."
         },
     ),
-    images: Optional[list[UploadFile]] = File(
+    images: Optional[list[str]] = Form(
         default=None,
-        description="Vehicle photos (optional, max 10, jpg/png/webp, max 5 MB each)",
+        description="Base64-encoded vehicle photos from frontend (optional, max 10, max 5 MB each)",
+        json_schema_extra={
+            "example": [
+                "data:image/jpeg;base64,/9j/4AAQSkZJRgABA..."
+            ]
+        },
     ),
 ):
     """
@@ -127,76 +183,44 @@ async def create_valuation(
     5. Parse & persist result
     """
 
-    # ── Manually extract real image files from the multipart form ──
-    # Swagger UI sends empty-string parts for optional file fields,
-    # so we read from the raw request to filter out empties.
-    form = await request.form()
-    image_files: list[UploadFile] = []
-    for key in form:
-        if key == "images":
-            value = form.getlist(key)
-            for item in value:
-                if isinstance(item, UploadFile) and item.filename:
-                    image_files.append(item)
+    # ── Validate encoded images from the frontend ──
+    image_strings: list[str] = [img.strip() for img in images if img and img.strip()] if images else []
 
-    # ── Validate image count ──
-    if len(image_files) > settings.MAX_IMAGE_COUNT:
+    if len(image_strings) > settings.MAX_IMAGE_COUNT:
         return JSONResponse(
             status_code=400,
             content=ErrorResponse(
                 error_code="TOO_MANY_IMAGES",
-                message=f"Maximum {settings.MAX_IMAGE_COUNT} images allowed, got {len(image_files)}.",
+                message=f"Maximum {settings.MAX_IMAGE_COUNT} images allowed, got {len(image_strings)}.",
             ).model_dump(),
         )
 
-    # ── Validate each image (type + size) ──
-    for img in image_files:
-        # Check content type
-        ext = Path(img.filename).suffix.lower() if img.filename else ""
-        if ext not in settings.ALLOWED_EXTENSIONS:
+    for index, image_b64 in enumerate(image_strings, start=1):
+        try:
+            decoded_bytes, image_format = validate_b64_image_data(image_b64)
+        except ValueError as e:
             return JSONResponse(
                 status_code=400,
                 content=ErrorResponse(
-                    error_code="INVALID_FILE_TYPE",
-                    message=(
-                        f"Unsupported image format '{ext}' for file '{img.filename}'. "
-                        f"Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
-                    ),
+                    error_code="INVALID_IMAGE_DATA",
+                    message=f"Image #{index} is invalid: {str(e)}",
                 ).model_dump(),
             )
 
-        # Check size (read content to verify)
-        contents = await img.read()
-        if len(contents) > settings.MAX_IMAGE_SIZE_BYTES:
+        if len(decoded_bytes) > settings.MAX_IMAGE_SIZE_BYTES:
             return JSONResponse(
                 status_code=400,
                 content=ErrorResponse(
                     error_code="FILE_TOO_LARGE",
                     message=(
-                        f"Image '{img.filename}' is {len(contents) / 1024 / 1024:.1f} MB. "
+                        f"Image #{index} is {len(decoded_bytes) / 1024 / 1024:.1f} MB. "
                         f"Maximum allowed is {settings.MAX_IMAGE_SIZE_BYTES / 1024 / 1024:.0f} MB."
                     ),
                 ).model_dump(),
             )
-        # Reset seek position for later reads
-        await img.seek(0)
 
-    # ── Generate valuation ID and save images to disk ──
     valuation_id = str(uuid.uuid4())
-    image_dir = Path(settings.IMAGES_DIR) / valuation_id
-    image_dir.mkdir(parents=True, exist_ok=True)
-
-    saved_image_paths: list[str] = []
-    saved_image_names: list[str] = []
-
-    for img in image_files:
-        safe_name = img.filename.replace(" ", "_") if img.filename else f"image_{uuid.uuid4().hex[:8]}.jpg"
-        dest = image_dir / safe_name
-        content = await img.read()
-        dest.write_bytes(content)
-        saved_image_paths.append(str(dest))
-        saved_image_names.append(safe_name)
-        logger.info(f"Saved image: {dest} ({len(content)} bytes)")
+    saved_image_names: list[str] = [f"image_{i+1}.jpg" for i in range(len(image_strings))]
 
     # ── Build prompt ──
     prompt = build_valuation_prompt(
@@ -208,13 +232,14 @@ async def create_valuation(
         location=location,
         fuel_type=fuel_type,
         transmission=transmission,
+        number_of_owners=number_of_owners,
         service_history=service_history,
-        image_count=len(image_files),
+        image_count=len(image_strings),
     )
 
     # ── Call LLM ──
     try:
-        llm_result = await call_llm(prompt=prompt, image_paths=saved_image_paths or None)
+        llm_result = await call_llm(prompt=prompt, image_b64_list=image_strings or None)
     except LLMServiceError as e:
         return JSONResponse(
             status_code=500,
@@ -234,6 +259,7 @@ async def create_valuation(
             variant=variant,
             manufacture_year=manufacture_year,
             odometer_km=odometer_km,
+            number_of_owners=number_of_owners,
             estimated_resale_value=llm_result.get("estimated_resale_value", {}),
             confidence_score=llm_result.get("confidence_score", 0),
             confidence_reasoning=llm_result.get("confidence_reasoning", ""),

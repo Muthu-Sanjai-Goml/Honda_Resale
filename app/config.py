@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # --- LLM Config ---
     BEDROCK_MODEL_ID: str = "anthropic.claude-sonnet-4-6-20250514-v1:0"
     LLM_MAX_TOKENS: int = 2000
+    LLM_TEMPERATURE: float = 0.0
 
     # --- Storage Paths (cross-platform) ---
     BASE_STORAGE_DIR: str = os.path.join(tempfile.gettempdir(), "honda-valuation")

@@ -7,6 +7,7 @@ and parses the JSON response with a single retry on parse failure.
 """
 
 import base64
+import binascii
 import json
 import logging
 import mimetypes
@@ -45,6 +46,91 @@ def _get_bedrock_client():
         kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
 
     return boto3.client("bedrock-runtime", **kwargs)
+
+
+def _detect_image_mime_type(image_bytes: bytes) -> str | None:
+    """
+    Detect the MIME type of an image from its binary header bytes.
+
+    Supports JPEG, PNG, WEBP, and AVIF detection.
+    """
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if image_bytes[0:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        return "image/webp"
+    if len(image_bytes) >= 12 and image_bytes[4:8] == b"ftyp" and image_bytes[8:12] in {b"avif", b"av01", b"avis"}:
+        return "image/avif"
+    return None
+
+
+def validate_b64_image_data(image_b64: str) -> tuple[bytes, str]:
+    """
+    Validate a base64 image payload and return decoded bytes plus MIME type.
+
+    Parameters
+    ----------
+    image_b64 : str
+        Image data in the form 'data:image/png;base64,...' or plain base64.
+
+    Returns
+    -------
+    tuple[bytes, str]
+        Decoded image bytes and MIME type.
+
+    Raises
+    ------
+    ValueError
+        If the payload is invalid or the MIME type is unsupported.
+    """
+    if not image_b64:
+        raise ValueError("Image payload is empty.")
+
+    header = None
+    data = image_b64
+    if image_b64.startswith("data:"):
+        try:
+            header, data = image_b64.split(",", 1)
+        except ValueError:
+            raise ValueError("Malformed data URI.")
+
+    # Normalize: strip whitespace/newlines, support URL-safe base64, and pad
+    data = data.strip()
+    # remove any whitespace characters (newlines, spaces) that may appear
+    data = re.sub(r"\s+", "", data)
+    # convert URL-safe base64 to standard base64
+    data = data.replace("-", "+").replace("_", "/")
+    # pad with '=' to multiple of 4
+    padding = (-len(data)) % 4
+    if padding:
+        data = data + ("=" * padding)
+
+    try:
+        decoded = base64.b64decode(data, validate=True)
+    except (ValueError, binascii.Error):
+        # final attempt: try a permissive decode to give a clearer error
+        try:
+            decoded = base64.b64decode(data, validate=False)
+        except Exception:
+            raise ValueError("Base64 data is invalid.")
+
+    # Inspect decoded bytes for real MIME type (more reliable than header)
+    actual_mime = _detect_image_mime_type(decoded)
+    if actual_mime:
+        mime_type = actual_mime
+    elif header:
+        if ";base64" not in header:
+            raise ValueError("Data URI is not base64-encoded.")
+        mime_type = header.split(";", 1)[0].replace("data:", "")
+    else:
+        # fallback to guess (rare)
+        mime_type = mimetypes.guess_type("data.jpg")[0] or "image/jpeg"
+
+    if mime_type not in settings.ALLOWED_IMAGE_TYPES:
+        raise ValueError(f"Unsupported image MIME type '{mime_type}'.")
+
+    return decoded, mime_type
 
 
 def _read_image_as_base64(image_path: str) -> tuple[str, str]:
@@ -115,6 +201,7 @@ def _invoke_bedrock(messages: list[dict]) -> str:
             messages=messages,
             inferenceConfig={
                 "maxTokens": settings.LLM_MAX_TOKENS,
+                "temperature": settings.LLM_TEMPERATURE,
             },
         )
     except (ClientError, BotoCoreError) as e:
@@ -139,7 +226,7 @@ def _invoke_bedrock(messages: list[dict]) -> str:
     )
 
 
-def _build_converse_content(prompt: str, image_paths: list[str] | None = None) -> list[dict]:
+def _build_converse_content(prompt: str, image_b64_list: list[str] | None = None) -> list[dict]:
     """
     Build content blocks for the Bedrock Converse API.
 
@@ -147,8 +234,8 @@ def _build_converse_content(prompt: str, image_paths: list[str] | None = None) -
     ----------
     prompt : str
         The text prompt.
-    image_paths : list[str] | None
-        Optional list of absolute paths to images.
+    image_b64_list : list[str] | None
+        Optional list of base64-encoded image payloads.
 
     Returns
     -------
@@ -157,39 +244,33 @@ def _build_converse_content(prompt: str, image_paths: list[str] | None = None) -
     """
     content_blocks: list[dict] = []
 
-    if image_paths:
-        for img_path in image_paths:
+    if image_b64_list:
+        for image_b64 in image_b64_list:
             try:
-                b64_data, media_type = _read_image_as_base64(img_path)
-
-                # Map MIME type to Bedrock format string
+                decoded, mime_type = validate_b64_image_data(image_b64)
                 format_map = {
                     "image/jpeg": "jpeg",
                     "image/png": "png",
                     "image/webp": "webp",
-                    "image/gif": "gif",
                 }
-                img_format = format_map.get(media_type, "jpeg")
-
+                img_format = format_map.get(mime_type, "jpeg")
                 content_blocks.append(
                     {
                         "image": {
                             "format": img_format,
-                            "source": {
-                                "bytes": base64.standard_b64decode(b64_data),
-                            },
-                        },
+                            "source": {"bytes": decoded},
+                        }
                     }
                 )
             except Exception as e:
-                logger.warning(f"Failed to read image {img_path}: {e}")
+                logger.warning(f"Failed to decode image for Bedrock: {e}")
                 continue
 
     content_blocks.append({"text": prompt})
     return content_blocks
 
 
-async def call_llm(prompt: str, image_paths: list[str] | None = None) -> dict:
+async def call_llm(prompt: str, image_b64_list: list[str] | None = None) -> dict:
     """
     Call the AWS Bedrock Converse API with a text prompt and optional images.
 
@@ -197,8 +278,8 @@ async def call_llm(prompt: str, image_paths: list[str] | None = None) -> dict:
     ----------
     prompt : str
         The text prompt to send.
-    image_paths : list[str] | None
-        Optional list of absolute paths to images on disk.
+    image_b64_list : list[str] | None
+        Optional list of base64-encoded image payloads.
 
     Returns
     -------
@@ -212,7 +293,7 @@ async def call_llm(prompt: str, image_paths: list[str] | None = None) -> dict:
     """
 
     # Build content blocks: images first, then text
-    content_blocks = _build_converse_content(prompt, image_paths)
+    content_blocks = _build_converse_content(prompt, image_b64_list)
     messages = [{"role": "user", "content": content_blocks}]
 
     # --- First attempt ---
