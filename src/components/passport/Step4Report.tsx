@@ -55,6 +55,9 @@ export function Step4Report({ report }: { report: ValuationReport }) {
     return `₹ ${lakhs.toFixed(2)} Lakhs`;
   };
 
+
+  
+
   // Calculate position percentage for visual slider (point vs range)
   const rangePercent = highPrice > lowPrice 
     ? Math.min(100, Math.max(0, ((pointPrice - lowPrice) / (highPrice - lowPrice)) * 100))

@@ -89,12 +89,7 @@ function OwnerLayout() {
                 <div className="text-[10px] text-[color:var(--neutral-muted)]">Honda Owner</div>
               </div>
             </div>
-            <button
-              onClick={() => { signOut(); navigate({ to: "/login" }); }}
-              className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-[color:var(--honda-red)] hover:opacity-80"
-            >
-              <LogOut size={12} /> Sign out
-            </button>
+
           </div>
         </div>
       </aside>
@@ -122,13 +117,7 @@ function OwnerLayout() {
             <span className="text-[11px] text-[color:var(--neutral-muted)] hidden sm:inline">
               {session.name}
             </span>
-            <button
-              onClick={() => { signOut(); navigate({ to: "/login" }); }}
-              className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-[7px] border border-[color:var(--neutral-line)] text-[color:var(--honda-red)]"
-              aria-label="Sign out"
-            >
-              <LogOut size={14} />
-            </button>
+
           </div>
         </header>
 
