@@ -92,15 +92,35 @@ export function Step2Photos({ photos, onChange, onBack, onNext }: Props) {
     onChange({ ...photos, [id]: { url, name: file.name } });
   };
 
+  const loadDemoPhotos = () => {
+    onChange({
+      front: { url: "/honda_photos/front.avif", name: "front.avif" },
+      rear: { url: "/honda_photos/back.avif", name: "back.avif" },
+      left: { url: "/honda_photos/left.avif", name: "left.avif" },
+      right: { url: "/honda_photos/right.avif", name: "right.avif" },
+      dashboard: { url: "/honda_photos/dash.avif", name: "dash.avif" },
+      seat: { url: "/honda_photos/seat.avif", name: "seat.avif" },
+    });
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-[32px] sm:text-[34px] font-semibold leading-[1.1] text-[color:var(--slate-ink)]">
-          Upload Vehicle Photos
-        </h1>
-        <p className="mt-2 text-[15px] text-[color:var(--neutral-muted)]">
-          Clear photos help our AI assess your Honda&apos;s condition accurately.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-display text-[32px] sm:text-[34px] font-semibold leading-[1.1] text-[color:var(--slate-ink)]">
+            Upload Vehicle Photos
+          </h1>
+          <p className="mt-2 text-[15px] text-[color:var(--neutral-muted)]">
+            Clear photos help our AI assess your Honda&apos;s condition accurately.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadDemoPhotos}
+          className="shrink-0 inline-flex h-[40px] items-center justify-center rounded-[8px] bg-[color:var(--slate-ink)] px-4 text-[13px] font-semibold text-white hover:opacity-90 transition shadow-sm"
+        >
+          Load Demo Photos
+        </button>
       </div>
 
       <div className="rounded-[8px] border border-[#F5D174] bg-[#FEF9EC] px-4 py-3 text-[13px] text-[color:var(--slate-ink)]">

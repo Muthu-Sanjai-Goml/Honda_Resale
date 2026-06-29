@@ -12,12 +12,16 @@ const SessionCtx = createContext<{
 }>({ session: null, signIn: () => {}, signOut: () => {} });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session>(null);
+  const [session, setSession] = useState<Session>({ role: "owner", name: "Arjun Mehta" });
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setSession(JSON.parse(raw));
+      if (raw) {
+        setSession(JSON.parse(raw));
+      } else {
+        localStorage.setItem(KEY, JSON.stringify({ role: "owner", name: "Arjun Mehta" }));
+      }
     } catch {}
   }, []);
 
@@ -26,8 +30,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSession(s);
   }, []);
   const signOut = useCallback(() => {
-    localStorage.removeItem(KEY);
-    setSession(null);
+    const defaultSession = { role: "owner" as Role, name: "Arjun Mehta" };
+    localStorage.setItem(KEY, JSON.stringify(defaultSession));
+    setSession(defaultSession);
   }, []);
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 // removed unused LogOut import
 import { Header } from "./Header";
@@ -35,6 +35,19 @@ export function ValuePassportApp({ onSignOut, onDone }: Props) {
   const [photos, setPhotos] = useState<Photos>({});
   const { add } = useSubmissions();
   const { session } = useSession();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTo(0, 0);
+    document.body.scrollTo(0, 0);
+
+    const t = setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTo(0, 0);
+      document.body.scrollTo(0, 0);
+    }, 50);
+    return () => clearTimeout(t);
+  }, [step]);
 
   const handleAnalysisDone = () => {
     if (session?.role === "owner") {

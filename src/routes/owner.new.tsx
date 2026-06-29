@@ -10,7 +10,7 @@ function NewPassport() {
   const { signOut } = useSession();
   const navigate = useNavigate();
   return (
-    <div className="-mx-4 -my-6 sm:-mx-6 sm:-my-8">
+    <div>
       <ValuePassportApp
         onSignOut={() => {
           signOut();
