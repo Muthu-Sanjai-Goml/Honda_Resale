@@ -1,16 +1,12 @@
 """
-Prompt dispatcher for the Honda resale valuation system.
+Prompt builder for Honda Activa (two-wheeler scooter) valuation.
 
-Routes to the appropriate vehicle-specific prompt builder based on
-the vehicle_model parameter. Each vehicle type (car vs scooter) has
-its own dedicated prompt module with tailored assessment criteria,
-depreciation curves, and pricing benchmarks.
+Mirrors the structure of the Honda City prompt but with scooter-specific
+context for the Indian used two-wheeler market.
 """
 
-from app.prompts.activa_prompt import build_activa_prompt
 
-
-def _build_city_prompt(
+def build_activa_prompt(
     variant: str,
     manufacture_year: int,
     registration_year: int,
@@ -23,10 +19,35 @@ def _build_city_prompt(
     image_count: int,
 ) -> str:
     """
-    Build the full valuation prompt for a Honda City sedan.
+    Build the full valuation prompt for a Honda Activa scooter.
 
-    This is the original car-specific prompt with sedan assessment
-    criteria and Indian four-wheeler market depreciation logic.
+    Parameters
+    ----------
+    variant : str
+        Trim level (e.g., STD, DLX, 6G, 125).
+    manufacture_year : int
+        Year the scooter was manufactured.
+    registration_year : int
+        Year the scooter was first registered.
+    odometer_km : int
+        Current odometer reading in kilometres.
+    location : str
+        City/region in India.
+    fuel_type : str
+        Fuel type (almost always petrol for Activa).
+    transmission : str
+        Transmission type (automatic/CVT for Activa).
+    number_of_owners : int
+        Number of previous owners.
+    service_history : str | None
+        Free-text service history or None.
+    image_count : int
+        Number of images attached to the request.
+
+    Returns
+    -------
+    str
+        The formatted prompt string.
     """
 
     # Service history section
@@ -39,26 +60,27 @@ Evaluate the service history for:
 - Regularity of maintenance intervals
 - Any major repairs or component replacements
 - Missed service intervals
-- Whether serviced at authorised Honda dealer vs. third-party
-- don't be  very strict with the valuation, have a lenient approach and have around 10-15k buffer in the max estimate.
+- Whether serviced at authorised Honda dealer vs. local mechanic
+- don't be very strict with the valuation, have a lenient approach and have around 3-5k buffer in the max estimate.
 """
     else:
         service_section = """
 SERVICE HISTORY: Not provided.
-Base your service assessment solely on the vehicle's age and odometer reading.
+Base your service assessment solely on the scooter's age and odometer reading.
 Flag "no_service_history" in fallback_flags.
 """
 
-    # Image section — sedan/car-specific assessment
+    # Image section — scooter-specific assessment
     if image_count > 0:
         image_section = f"""
 IMAGES: {image_count} photo(s) attached above.
-Carefully examine each photo and assess:
-- **Exterior**: body damage, paint condition, rust, dents, scratches, panel gaps
-- **Interior**: seat wear, dashboard condition, upholstery, cleanliness
-- **Tyres**: tread depth, uneven wear, age
-- **Signs of accident repair**: mismatched paint, filler, uneven panels
-- **Modifications**: aftermarket parts, altered exhaust, etc.
+This is a scooter (two-wheeler). Carefully examine each photo and assess:
+- **Body panels**: scratches, cracks, dents, paint fade, panel alignment
+- **Seat condition**: tears, sagging, fading
+- **Tyres**: tread depth, sidewall cracks, uneven wear
+- **Engine & exhaust**: visible oil leaks, rust on silencer
+- **Signs of accident/fall**: scrape marks on side panels, bent footrest, cracked indicators
+- **Modifications**: aftermarket exhaust, crash guards, LED lights, etc.
 
 If images are blurry, dark, or low quality, flag "low_quality_images".
 """
@@ -69,14 +91,20 @@ Mark exterior_condition and interior_condition as "unable to assess".
 Flag "no_images" in fallback_flags.
 """
 
-    prompt = f"""You are an expert automotive appraiser specialising in the Indian used-vehicle market.
-You are evaluating a **Honda City {variant}** (sedan / four-wheeler car) for resale valuation.
+    prompt = f"""You are an expert two-wheeler appraiser specialising in the Indian used-scooter market.
+You are evaluating a **Honda Activa {variant}** (scooter / two-wheeler) for resale valuation.
+
+IMPORTANT CONTEXT: The Honda Activa is a mass-market scooter (two-wheeler), NOT a car.
+It has a much lower price point and depreciates faster than four-wheelers. The ex-showroom
+price of a new Activa ranges from ₹72,000 to ₹95,000 depending on the variant. Use
+Indian two-wheeler marketplace prices (OLX, BikeWale, OrangeBookValue) as your reference.
 
 ═══════════════════════════════════════════
 VEHICLE DETAILS
 ═══════════════════════════════════════════
-• Model          : Honda City
+• Model          : Honda Activa
 • Variant        : {variant}
+• Vehicle Type   : Scooter (two-wheeler)
 • Manufacture Yr : {manufacture_year}
 • Registration Yr: {registration_year}
 • Odometer       : {odometer_km:,} km
@@ -99,7 +127,7 @@ SERVICE HISTORY ASSESSMENT
 ═══════════════════════════════════════════
 CONFIDENCE SCORING
 ═══════════════════════════════════════════
-Assign a confidence score from 0 to 100: based on how confident you are about the estimated price based on the informations provided. 
+Assign a confidence score from 0 to 100: based on how confident you are about the estimated price based on the informations provided.
 if there are any data unavailable or is of low quality or if the service history sounds very uncertain.
 dont be very sensitive about the confidence score, just give your best estimate based on the information provided.
 ═══════════════════════════════════════════
@@ -145,78 +173,3 @@ no explanations outside the JSON. The JSON must conform to this exact schema:
 Remember: output ONLY the JSON object. Nothing else.
 """
     return prompt
-
-
-def build_valuation_prompt(
-    vehicle_model: str,
-    variant: str,
-    manufacture_year: int,
-    registration_year: int,
-    odometer_km: int,
-    location: str,
-    fuel_type: str,
-    transmission: str,
-    number_of_owners: int,
-    service_history: str | None,
-    image_count: int,
-) -> str:
-    """
-    Dispatch to the correct vehicle-specific prompt builder.
-
-    Parameters
-    ----------
-    vehicle_model : str
-        One of 'honda_city' or 'honda_activa'.
-    variant : str
-        Trim level (e.g., VX, ZX, DLX).
-    manufacture_year : int
-        Year the vehicle was manufactured.
-    registration_year : int
-        Year the vehicle was first registered.
-    odometer_km : int
-        Current odometer reading in kilometres.
-    location : str
-        City/region in India.
-    fuel_type : str
-        Fuel type (petrol, diesel, electric, cng).
-    transmission : str
-        Transmission type (manual, automatic).
-    number_of_owners : int
-        Number of previous owners.
-    service_history : str | None
-        Free-text service history or None.
-    image_count : int
-        Number of images attached to the request.
-
-    Returns
-    -------
-    str
-        The formatted prompt string.
-    """
-    if vehicle_model == "honda_activa":
-        return build_activa_prompt(
-            variant=variant,
-            manufacture_year=manufacture_year,
-            registration_year=registration_year,
-            odometer_km=odometer_km,
-            location=location,
-            fuel_type=fuel_type,
-            transmission=transmission,
-            number_of_owners=number_of_owners,
-            service_history=service_history,
-            image_count=image_count,
-        )
-    else:
-        # Default: Honda City (or any future four-wheeler)
-        return _build_city_prompt(
-            variant=variant,
-            manufacture_year=manufacture_year,
-            registration_year=registration_year,
-            odometer_km=odometer_km,
-            location=location,
-            fuel_type=fuel_type,
-            transmission=transmission,
-            number_of_owners=number_of_owners,
-            service_history=service_history,
-            image_count=image_count,
-        )
