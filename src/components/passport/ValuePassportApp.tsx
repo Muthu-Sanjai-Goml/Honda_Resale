@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-// removed unused LogOut import
 import { Header } from "./Header";
 import { StepIndicator } from "./StepIndicator";
 import { Step1Details, type VehicleDetails } from "./Step1Details";
 import { Step2Photos, type Photos } from "./Step2Photos";
 import { Step3Analysis } from "./Step3Analysis";
 import { Step4Report } from "./Step4Report";
-import { useSubmissions } from "@/lib/submissions";
-import { useSession } from "@/lib/session";
 import type { ValuationReport } from "@/lib/types";
 import { submitVehicleValuation } from "@/service/valuation";
 import { toast } from "sonner";
@@ -28,15 +25,12 @@ const INITIAL_DETAILS: VehicleDetails = {
   city: "Bengaluru",
 };
 
-type Props = { onSignOut?: () => void; onDone?: () => void };
+type Props = { onDone?: () => void };
 
-export function ValuePassportApp({ onSignOut, onDone }: Props) {
+export function ValuePassportApp({ onDone }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [details, setDetails] = useState<VehicleDetails>(INITIAL_DETAILS);
   const [photos, setPhotos] = useState<Photos>({});
-  const { add } = useSubmissions();
-  const { session } = useSession();
-
   const [generatedReport, setGeneratedReport] = useState<ValuationReport | null>(null);
   const [activeReport, setActiveReport] = useState<ValuationReport | null>(null);
   const [valuationError, setValuationError] = useState<string | null>(null);
@@ -63,19 +57,6 @@ export function ValuePassportApp({ onSignOut, onDone }: Props) {
   };
 
   const handleAnalysisDone = (reportToSave: ValuationReport) => {
-    if (session?.role === "owner") {
-      const uploaded = Object.entries(photos).map(([k, v]) => ({
-        label: k.charAt(0).toUpperCase() + k.slice(1),
-        url: v!.url,
-      }));
-      add({
-        ownerName: session.name,
-        phone: "+91 98xxxx0000",
-        photos: uploaded.length ? uploaded : undefined,
-        report: reportToSave,
-      });
-    }
-
     setActiveReport(reportToSave);
     setStep(4);
   };

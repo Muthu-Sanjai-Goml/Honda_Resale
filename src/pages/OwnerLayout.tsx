@@ -1,34 +1,21 @@
-import { createFileRoute, Outlet, Link, useRouterState, useNavigate, Navigate } from "@tanstack/react-router";
-import { Car, History, LogOut, Menu, PlusCircle } from "lucide-react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSession } from "@/lib/session";
 import { HondaLogo } from "@/components/passport/HondaLogo";
 
-export const Route = createFileRoute("/owner")({
-  component: OwnerLayout,
-});
+const NAV = [{ to: "/owner", label: "New Passport", icon: PlusCircle }] as const;
+const OWNER_NAME = "Owner";
 
-const NAV: { to: "/owner" | "/owner/history" | "/owner/new"; label: string; icon: typeof Car; exact?: boolean }[] = [
-  // { to: "/owner", label: "My Vehicles", icon: Car, exact: true },
-  // { to: "/owner/history", label: "Passport History", icon: History },
-  { to: "/owner/new", label: "New Passport", icon: PlusCircle },
-];
-
-function OwnerLayout() {
-  const { session, signOut } = useSession();
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+export function OwnerLayout() {
+  const { pathname } = useLocation();
   const [openMobile, setOpenMobile] = useState(false);
 
-  useEffect(() => { setOpenMobile(false); }, [pathname]);
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname]);
 
-  if (!session) return <Navigate to="/login" />;
-  if (session.role !== "owner") return <Navigate to="/dealer" />;
-
-  const isActive = (to: string, exact?: boolean) =>
-    exact ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
-
-  const activeNav = NAV.find((n) => isActive(n.to, n.exact));
+  const isActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
+  const activeNav = NAV.find((n) => isActive(n.to));
 
   return (
     <div className="flex min-h-screen bg-[color:var(--surface)]">
@@ -54,7 +41,7 @@ function OwnerLayout() {
             Garage
           </div>
           {NAV.map((n) => {
-            const active = isActive(n.to, n.exact);
+            const active = isActive(n.to);
             const Icon = n.icon;
             return (
               <Link
@@ -80,22 +67,24 @@ function OwnerLayout() {
           <div className="rounded-[7px] bg-[color:var(--surface)] p-2.5">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--honda-red)] text-[11px] font-semibold text-white">
-                {session.name.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                {OWNER_NAME.charAt(0)}
               </div>
               <div className="min-w-0">
                 <div className="text-[12px] font-medium leading-tight text-[color:var(--slate-ink)] truncate">
-                  {session.name}
+                  {OWNER_NAME}
                 </div>
                 <div className="text-[10px] text-[color:var(--neutral-muted)]">Honda Owner</div>
               </div>
             </div>
-
           </div>
         </div>
       </aside>
 
       {openMobile && (
-        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setOpenMobile(false)} />
+        <div
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          onClick={() => setOpenMobile(false)}
+        />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -115,39 +104,14 @@ function OwnerLayout() {
           </span>
           <div className="ml-auto flex items-center gap-2.5">
             <span className="text-[11px] text-[color:var(--neutral-muted)] hidden sm:inline">
-              {session.name}
+              {OWNER_NAME}
             </span>
-
           </div>
         </header>
 
-        <main className={`flex-1 px-3 py-4 sm:px-5 sm:py-5 ${NAV.length > 1 ? "pb-20 md:pb-5" : "pb-4 md:pb-5"}`}>
+        <main className="flex-1 px-3 py-4 pb-4 sm:px-5 sm:py-5 md:pb-5">
           <Outlet />
         </main>
-
-        {/* Bottom tab bar - mobile only */}
-        {NAV.length > 1 && (
-          <nav className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-[color:var(--neutral-line)] bg-white/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
-            {NAV.map((n) => {
-              const active = isActive(n.to, n.exact);
-              const Icon = n.icon;
-              return (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition ${
-                    active
-                      ? "text-[color:var(--honda-red)]"
-                      : "text-[color:var(--neutral-muted)]"
-                  }`}
-                >
-                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                  {n.label}
-                </Link>
-              );
-            })}
-          </nav>
-        )}
       </div>
     </div>
   );

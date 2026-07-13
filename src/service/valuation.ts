@@ -93,157 +93,27 @@ export interface ValuationBackendResponse {
   created_at: string;
 }
 
-// Convert Backend condition fields to Numerical Scores (1-100) for charts
-function conditionToScore(cond?: string): number {
-  if (!cond) return 75;
-  const c = cond.toLowerCase();
-  if (c.includes("excel") || c === "excellent") return 95;
-  if (c.includes("good")) return 80;
-  if (c.includes("average") || c.includes("fair")) return 65;
-  if (c.includes("poor") || c.includes("bad")) return 45;
-  return 75;
-}
-
-function serviceToScore(service?: string): number {
-  if (!service) return 75;
-  const s = service.toLowerCase();
-  if (s.includes("all") || s.includes("asc") || s.includes("authorized")) return 95;
-  if (s.includes("mixed") || s.includes("regular")) return 75;
-  if (s.includes("local")) return 55;
-  if (s.includes("no") || s.includes("none")) return 35;
-  return 75;
-}
-
-function odometerAssessmentToScore(assess?: string): number {
-  if (!assess) return 75;
-  const a = assess.toLowerCase();
-  if (a.includes("excel") || a === "low") return 95;
-  if (a.includes("good") || a === "average") return 80;
-  if (a.includes("fair")) return 65;
-  if (a.includes("poor") || a === "high") return 45;
-  return 75;
-}
-
-// Map the Backend API Response format to the Frontend MockReport schema
+// Map the backend API response into the normalized shape the report UI reads.
 export function mapBackendResponseToReport(
   res: ValuationBackendResponse,
   details: VehicleDetails,
 ): ValuationReport {
-  const lowLakhs = Math.round((res.estimated_resale_value.low / 100000) * 100) / 100;
-  const highLakhs = Math.round((res.estimated_resale_value.high / 100000) * 100) / 100;
-  const pointLakhs = Math.round((res.estimated_resale_value.point_estimate / 100000) * 100) / 100;
-
-  const exteriorScore = conditionToScore(res.condition_assessment?.exterior_condition);
-  const interiorScore = conditionToScore(res.condition_assessment?.interior_condition);
-  const serviceScore = serviceToScore(details.service);
-  const mileageScore = odometerAssessmentToScore(res.depreciation_analysis?.odometer_assessment);
-
-  // Calculate weighted total score
-  const totalScore =
-    Math.round(
-      (exteriorScore * 0.4 + interiorScore * 0.25 + serviceScore * 0.2 + mileageScore * 0.15) * 10,
-    ) / 10;
-
-  // Generate a realistic depreciation chart data points (km vs lakhs)
-  const currentOdo = res.odometer_km || 35000;
-  const baseNewLakhs =
-    (res.depreciation_analysis?.base_value_new || res.estimated_resale_value.point_estimate * 1.6) /
-    100000;
-  const market = [0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000].map((km) => {
-    let val = baseNewLakhs - (baseNewLakhs - pointLakhs) * (km / Math.max(1, currentOdo));
-    if (val < baseNewLakhs * 0.25) val = baseNewLakhs * 0.25; // limit floor
-    val = Math.round(val * 100) / 100;
-    return {
-      km,
-      value: val,
-      low: Math.round(val * 0.9 * 100) / 100,
-      high: Math.round(val * 1.1 * 100) / 100,
-    };
-  });
-
-  const extScoreOutOfTen = Math.min(10, Math.max(1, Math.round(exteriorScore / 10)));
-  const intScoreOutOfTen = Math.min(10, Math.max(1, Math.round(interiorScore / 10)));
+  const toLakhs = (v: number) => Math.round((v / 100000) * 100) / 100;
 
   return {
     vehicle: {
-      brand: "Honda",
       model: details.model || res.vehicle_model,
       variant: details.variant || res.variant,
       year: res.manufacture_year || parseInt(details.year),
-      fuel: details.fuel || "Petrol",
-      transmission: details.transmission || "Automatic",
       odometer: res.odometer_km || parseInt(details.odometer),
       owner: details.owners || "1st Owner",
-      city: details.city || "Bengaluru",
-      service: details.service || "All Honda ASC",
     },
     value: {
-      low: lowLakhs,
-      high: highLakhs,
-      point: pointLakhs,
+      low: toLakhs(res.estimated_resale_value.low),
+      high: toLakhs(res.estimated_resale_value.high),
+      point: toLakhs(res.estimated_resale_value.point_estimate),
       confidence: Math.round(res.confidence_score),
-      comparables: 12 + Math.floor(Math.random() * 8), // Dynamic mock count for display
-      asOf: new Date(res.created_at).toLocaleString("default", { month: "short", year: "numeric" }),
     },
-    scores: {
-      exterior: exteriorScore,
-      interior: interiorScore,
-      service: serviceScore,
-      mileage: mileageScore,
-      total: totalScore,
-    },
-    breakdown: [
-      {
-        factor: "Exterior Condition",
-        score: exteriorScore,
-        weight: 40,
-        contribution: Math.round(exteriorScore * 0.4 * 10) / 10,
-      },
-      {
-        factor: "Interior Condition",
-        score: interiorScore,
-        weight: 25,
-        contribution: Math.round(interiorScore * 0.25 * 10) / 10,
-      },
-      {
-        factor: "Service History",
-        score: serviceScore,
-        weight: 20,
-        contribution: Math.round(serviceScore * 0.2 * 10) / 10,
-      },
-      {
-        factor: "Mileage Score",
-        score: mileageScore,
-        weight: 15,
-        contribution: Math.round(mileageScore * 0.15 * 10) / 10,
-      },
-    ],
-    market,
-    exteriorFindings: [
-      { label: "Scratches & Swirls", score: extScoreOutOfTen },
-      { label: "Dents & Scuffs", score: Math.max(1, extScoreOutOfTen - 1) },
-      { label: "Paint Condition", score: extScoreOutOfTen },
-      { label: "Corrosion / Rust", score: Math.min(10, extScoreOutOfTen + 1) },
-      { label: "Panel Fitment", score: extScoreOutOfTen },
-    ],
-    interiorFindings: [
-      { label: "Seat Fabric Wear", score: intScoreOutOfTen },
-      { label: "Dashboard Controls", score: Math.min(10, intScoreOutOfTen + 1) },
-      { label: "Steering Wheel Grip", score: intScoreOutOfTen },
-      { label: "Cabin Odor & Cleanliness", score: Math.min(10, intScoreOutOfTen + 2) },
-    ],
-    aiSummaryExterior: res.condition_assessment?.exterior_condition
-      ? `Exterior evaluated as ${res.condition_assessment.exterior_condition}. ${
-          res.condition_assessment.notable_issues?.length
-            ? "Issues found: " + res.condition_assessment.notable_issues.join(", ")
-            : "No major damage or paint deterioration detected."
-        }`
-      : "Excellent exterior appearance.",
-    aiSummaryInterior: res.condition_assessment?.interior_condition
-      ? `Interior cabin in ${res.condition_assessment.interior_condition} condition. ${
-          res.condition_assessment.service_history_summary || ""
-        }`
-      : "Cabin feels premium and clean.",
     raw: res,
   };
 }
