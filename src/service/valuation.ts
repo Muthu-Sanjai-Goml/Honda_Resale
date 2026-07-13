@@ -8,15 +8,15 @@ export function normalizeImageToJpegBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
-    
+
     img.onload = () => {
       // Clean up the object URL to prevent memory leaks
       URL.revokeObjectURL(objectUrl);
-      
+
       const canvas = document.createElement("canvas");
       let width = img.width;
       let height = img.height;
-      
+
       // Auto-downscale if image exceeds standard high-res boundaries to stay under 5MB base64 size limit
       const MAX_WIDTH = 1600;
       const MAX_HEIGHT = 1200;
@@ -29,34 +29,34 @@ export function normalizeImageToJpegBase64(file: File): Promise<string> {
           height = MAX_HEIGHT;
         }
       }
-      
+
       canvas.width = width;
       canvas.height = height;
-      
+
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         reject(new Error("Could not create 2D canvas context"));
         return;
       }
-      
+
       // Paint background white (handles transparent PNG/WebP gracefully)
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, width, height);
-      
+
       // Draw image onto canvas
       ctx.drawImage(img, 0, 0, width, height);
-      
+
       // Export as a JPEG data URL at 85% compression quality
       const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
       const base64 = dataUrl.split(",")[1] || dataUrl;
       resolve(base64);
     };
-    
+
     img.onerror = (error) => {
       URL.revokeObjectURL(objectUrl);
       reject(error);
     };
-    
+
     img.src = objectUrl;
   });
 }
@@ -127,27 +127,30 @@ function odometerAssessmentToScore(assess?: string): number {
 // Map the Backend API Response format to the Frontend MockReport schema
 export function mapBackendResponseToReport(
   res: ValuationBackendResponse,
-  details: VehicleDetails
+  details: VehicleDetails,
 ): ValuationReport {
   const lowLakhs = Math.round((res.estimated_resale_value.low / 100000) * 100) / 100;
   const highLakhs = Math.round((res.estimated_resale_value.high / 100000) * 100) / 100;
   const pointLakhs = Math.round((res.estimated_resale_value.point_estimate / 100000) * 100) / 100;
-  
+
   const exteriorScore = conditionToScore(res.condition_assessment?.exterior_condition);
   const interiorScore = conditionToScore(res.condition_assessment?.interior_condition);
   const serviceScore = serviceToScore(details.service);
   const mileageScore = odometerAssessmentToScore(res.depreciation_analysis?.odometer_assessment);
-  
+
   // Calculate weighted total score
-  const totalScore = Math.round(
-    (exteriorScore * 0.4 + interiorScore * 0.25 + serviceScore * 0.2 + mileageScore * 0.15) * 10
-  ) / 10;
+  const totalScore =
+    Math.round(
+      (exteriorScore * 0.4 + interiorScore * 0.25 + serviceScore * 0.2 + mileageScore * 0.15) * 10,
+    ) / 10;
 
   // Generate a realistic depreciation chart data points (km vs lakhs)
   const currentOdo = res.odometer_km || 35000;
-  const baseNewLakhs = (res.depreciation_analysis?.base_value_new || (res.estimated_resale_value.point_estimate * 1.6)) / 100000;
+  const baseNewLakhs =
+    (res.depreciation_analysis?.base_value_new || res.estimated_resale_value.point_estimate * 1.6) /
+    100000;
   const market = [0, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000].map((km) => {
-    let val = baseNewLakhs - ((baseNewLakhs - pointLakhs) * (km / Math.max(1, currentOdo)));
+    let val = baseNewLakhs - (baseNewLakhs - pointLakhs) * (km / Math.max(1, currentOdo));
     if (val < baseNewLakhs * 0.25) val = baseNewLakhs * 0.25; // limit floor
     val = Math.round(val * 100) / 100;
     return {
@@ -190,10 +193,30 @@ export function mapBackendResponseToReport(
       total: totalScore,
     },
     breakdown: [
-      { factor: "Exterior Condition", score: exteriorScore, weight: 40, contribution: Math.round(exteriorScore * 0.4 * 10) / 10 },
-      { factor: "Interior Condition", score: interiorScore, weight: 25, contribution: Math.round(interiorScore * 0.25 * 10) / 10 },
-      { factor: "Service History", score: serviceScore, weight: 20, contribution: Math.round(serviceScore * 0.2 * 10) / 10 },
-      { factor: "Mileage Score", score: mileageScore, weight: 15, contribution: Math.round(mileageScore * 0.15 * 10) / 10 },
+      {
+        factor: "Exterior Condition",
+        score: exteriorScore,
+        weight: 40,
+        contribution: Math.round(exteriorScore * 0.4 * 10) / 10,
+      },
+      {
+        factor: "Interior Condition",
+        score: interiorScore,
+        weight: 25,
+        contribution: Math.round(interiorScore * 0.25 * 10) / 10,
+      },
+      {
+        factor: "Service History",
+        score: serviceScore,
+        weight: 20,
+        contribution: Math.round(serviceScore * 0.2 * 10) / 10,
+      },
+      {
+        factor: "Mileage Score",
+        score: mileageScore,
+        weight: 15,
+        contribution: Math.round(mileageScore * 0.15 * 10) / 10,
+      },
     ],
     market,
     exteriorFindings: [
@@ -227,7 +250,7 @@ export function mapBackendResponseToReport(
 
 export async function submitVehicleValuation(
   details: VehicleDetails,
-  photos: Photos
+  photos: Photos,
 ): Promise<ValuationReport> {
   // Convert and normalize any selected photos into JPEG base64 strings
   const imageBase64Promises = Object.values(photos)
@@ -248,9 +271,11 @@ export async function submitVehicleValuation(
   }
 
   const fuelVal = (details.fuel || "Petrol").toLowerCase();
-  
+
   // Two-wheelers might not have transmission in form, default to manual/automatic based on vehicle type
-  let transVal = (details.transmission || (details.vehicleType === "Two-Wheeler" ? "Automatic" : "Manual")).toLowerCase();
+  let transVal = (
+    details.transmission || (details.vehicleType === "Two-Wheeler" ? "Automatic" : "Manual")
+  ).toLowerCase();
   if (transVal !== "manual" && transVal !== "automatic") {
     transVal = "automatic";
   }
@@ -266,9 +291,17 @@ export async function submitVehicleValuation(
   payload.append("fuel_type", fuelVal);
   payload.append("transmission", transVal);
   payload.append("number_of_owners", String(numberOfOwners));
-  
+
+  // Combine the service-history category with the free-text service & repair notes
+  const serviceHistoryParts: string[] = [];
   if (details.service) {
-    payload.append("service_history", details.service);
+    serviceHistoryParts.push(details.service);
+  }
+  if (details.repairsDesc && details.repairsDesc.trim()) {
+    serviceHistoryParts.push(details.repairsDesc.trim());
+  }
+  if (serviceHistoryParts.length > 0) {
+    payload.append("service_history", serviceHistoryParts.join(" — "));
   }
 
   // fastapi/x-www-form-urlencoded array handling (repeating parameters)

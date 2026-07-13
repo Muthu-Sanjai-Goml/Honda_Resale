@@ -15,21 +15,14 @@ export type VehicleDetails = {
   owners: "1st Owner" | "2nd Owner" | "3rd+ Owner" | "";
   service: "All Honda ASC" | "Mixed" | "Local Only" | "No Records" | "";
   lastService: string;
-  majorRepairs: "Yes" | "No" | "";
   repairsDesc: string;
   city: string;
 };
 
-const MODELS = [
-  "Honda City",
-  "Honda Activa",
-  "Honda Amaze",
-  "Honda WR-V",
-  "Honda Jazz",
-  "Honda CB Shine",
-  "Honda Dio",
-  "Honda Hornet 2.0",
-];
+const MODELS_BY_TYPE = {
+  "Two-Wheeler": ["Honda Activa"],
+  "Four-Wheeler": ["Honda City"],
+} as const;
 const CITIES = [
   "Mumbai",
   "Delhi",
@@ -56,21 +49,21 @@ export function Step1Details({ initial, onSubmit }: Props) {
     setD((prev) => ({ ...prev, [k]: v }));
 
   const isTwoWheeler = d.vehicleType === "Two-Wheeler";
+  const availableModels = d.vehicleType ? MODELS_BY_TYPE[d.vehicleType] : [];
 
   const required: (keyof VehicleDetails)[] = [
     "vehicleType",
     "model",
     "variant",
     "year",
-    "fuel",
     "odometer",
     "owners",
     "service",
     "lastService",
-    "majorRepairs",
     "city",
   ];
-  if (!isTwoWheeler) required.push("transmission");
+  // Two-wheelers skip fuel & transmission — sent as Petrol / Automatic by default
+  if (!isTwoWheeler) required.push("fuel", "transmission");
 
   const missing = required.filter((k) => !d[k]);
 
@@ -95,7 +88,18 @@ export function Step1Details({ initial, onSubmit }: Props) {
             <SegmentedToggle
               options={["Two-Wheeler", "Four-Wheeler"] as const}
               value={d.vehicleType}
-              onChange={(v) => set("vehicleType", v)}
+              onChange={(v) =>
+                setD((prev) => ({
+                  ...prev,
+                  vehicleType: v,
+                  // Only one model per type — preselect it
+                  model: MODELS_BY_TYPE[v][0],
+                  // Two-wheelers are sent as Petrol / Automatic
+                  ...(v === "Two-Wheeler"
+                    ? { fuel: "Petrol", transmission: "Automatic" }
+                    : {}),
+                }))
+              }
             />
           </Field>
           <Field label="Brand" required>
@@ -108,9 +112,12 @@ export function Step1Details({ initial, onSubmit }: Props) {
               className={inputClass}
               value={d.model}
               onChange={(e) => set("model", e.target.value)}
+              disabled={!d.vehicleType}
             >
-              <option value="">Select model</option>
-              {MODELS.map((m) => (
+              <option value="">
+                {d.vehicleType ? "Select model" : "Select vehicle type first"}
+              </option>
+              {availableModels.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
@@ -139,13 +146,15 @@ export function Step1Details({ initial, onSubmit }: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Fuel Type" required>
-            <SegmentedToggle
-              options={["Petrol", "Diesel", "CNG", "Electric"] as const}
-              value={d.fuel}
-              onChange={(v) => set("fuel", v)}
-            />
-          </Field>
+          {!isTwoWheeler && (
+            <Field label="Fuel Type" required>
+              <SegmentedToggle
+                options={["Petrol", "Diesel", "CNG", "Electric"] as const}
+                value={d.fuel}
+                onChange={(v) => set("fuel", v)}
+              />
+            </Field>
+          )}
           {!isTwoWheeler && (
             <Field label="Transmission" required className="md:col-span-2">
               <SegmentedToggle
@@ -199,25 +208,17 @@ export function Step1Details({ initial, onSubmit }: Props) {
               onChange={(e) => set("lastService", e.target.value)}
             />
           </Field>
-          <Field label="Any Major Repairs?" required>
-            <SegmentedToggle
-              options={["Yes", "No"] as const}
-              value={d.majorRepairs}
-              onChange={(v) => set("majorRepairs", v)}
+          <Field
+            label="Service & Repair Notes"
+            className="md:col-span-2"
+          >
+            <textarea
+              className={inputClass + " h-28 resize-none py-3"}
+              placeholder="Describe the service history, and any accident repairs or major work done — what was done and when. Leave blank if none."
+              value={d.repairsDesc}
+              onChange={(e) => set("repairsDesc", e.target.value)}
             />
           </Field>
-          {d.majorRepairs === "Yes" && (
-            <Field label="Briefly describe" className="md:col-span-2">
-              <textarea
-                className={
-                  inputClass + " h-24 resize-none py-3"
-                }
-                placeholder="Tell us what was repaired and when…"
-                value={d.repairsDesc}
-                onChange={(e) => set("repairsDesc", e.target.value)}
-              />
-            </Field>
-          )}
         </div>
       </section>
 

@@ -16,15 +16,14 @@ import { toast } from "sonner";
 const INITIAL_DETAILS: VehicleDetails = {
   vehicleType: "Four-Wheeler",
   model: "Honda City",
-  variant: "ZX CVT",
+  variant: "",
   year: "2022",
   fuel: "Petrol",
   transmission: "Automatic",
-  odometer: "35000",
+  odometer: "",
   owners: "1st Owner",
   service: "All Honda ASC",
   lastService: "2026-03",
-  majorRepairs: "No",
   repairsDesc: "",
   city: "Bengaluru",
 };
