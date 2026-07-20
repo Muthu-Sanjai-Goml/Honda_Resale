@@ -20,7 +20,7 @@ const INITIAL_DETAILS: VehicleDetails = {
   odometer: "",
   owners: "1st Owner",
   service: "All Honda ASC",
-  lastService: "2026-03",
+  lastService: "",
   repairsDesc: "",
   city: "Bengaluru",
 };

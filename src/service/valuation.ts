@@ -162,10 +162,14 @@ export async function submitVehicleValuation(
   payload.append("transmission", transVal);
   payload.append("number_of_owners", String(numberOfOwners));
 
-  // Combine the service-history category with the free-text service & repair notes
+  // Combine the service-history category with the last service date and the
+  // free-text service & repair notes
   const serviceHistoryParts: string[] = [];
   if (details.service) {
     serviceHistoryParts.push(details.service);
+  }
+  if (details.lastService) {
+    serviceHistoryParts.push(`Last serviced: ${details.lastService}`);
   }
   if (details.repairsDesc && details.repairsDesc.trim()) {
     serviceHistoryParts.push(details.repairsDesc.trim());

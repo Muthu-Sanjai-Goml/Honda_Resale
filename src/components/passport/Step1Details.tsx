@@ -34,7 +34,15 @@ const CITIES = [
   "Kolkata",
   "Other",
 ];
-const YEARS = Array.from({ length: 11 }, (_, i) => String(2025 - i));
+const CURRENT_YEAR = new Date().getFullYear();
+const EARLIEST_YEAR = 2015;
+const YEARS = Array.from({ length: CURRENT_YEAR - EARLIEST_YEAR + 1 }, (_, i) =>
+  String(CURRENT_YEAR - i),
+);
+const CURRENT_MONTH = (() => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+})();
 
 type Props = {
   initial: VehicleDetails;
@@ -66,10 +74,11 @@ export function Step1Details({ initial, onSubmit }: Props) {
   if (!isTwoWheeler) required.push("fuel", "transmission");
 
   const missing = required.filter((k) => !d[k]);
+  const lastServiceInFuture = !!d.lastService && d.lastService > CURRENT_MONTH;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (missing.length > 0) {
+    if (missing.length > 0 || lastServiceInFuture) {
       setShowErrors(true);
       return;
     }
@@ -205,6 +214,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
               type="month"
               className={inputClass}
               value={d.lastService}
+              max={CURRENT_MONTH}
               onChange={(e) => set("lastService", e.target.value)}
             />
           </Field>
@@ -246,6 +256,12 @@ export function Step1Details({ initial, onSubmit }: Props) {
       {showErrors && missing.length > 0 && (
         <div className="rounded-[8px] border border-[color:var(--score-red)]/30 bg-[color:var(--score-red)]/5 px-4 py-3 text-[13px] text-[color:var(--score-red)]">
           Please fill {missing.length} required field{missing.length === 1 ? "" : "s"} to continue.
+        </div>
+      )}
+
+      {showErrors && lastServiceInFuture && (
+        <div className="rounded-[8px] border border-[color:var(--score-red)]/30 bg-[color:var(--score-red)]/5 px-4 py-3 text-[13px] text-[color:var(--score-red)]">
+          Last Service Date cannot be in the future.
         </div>
       )}
 
