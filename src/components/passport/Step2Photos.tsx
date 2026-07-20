@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { ArrowLeft, ArrowRight, Camera, Check, RotateCw, Sun } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Check, RotateCw, Sun, X } from "lucide-react";
 
 export type PhotoSlotId =
   | "front"
@@ -32,10 +32,12 @@ function Tile({
   slot,
   photo,
   onSelect,
+  onRemove,
 }: {
   slot: { id: PhotoSlotId; label: string };
   photo?: Photos[PhotoSlotId];
   onSelect: (file: File) => void;
+  onRemove: () => void;
 }) {
   const onDrop = useCallback(
     (files: File[]) => {
@@ -71,6 +73,18 @@ function Tile({
             <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--score-green)] text-white">
               <Check size={12} strokeWidth={3} />
             </div>
+            <button
+              type="button"
+              aria-label={`Remove ${slot.label} photo`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRemove();
+              }}
+              className="absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+            >
+              <X size={12} strokeWidth={3} />
+            </button>
           </>
         ) : (
           <Camera size={24} className="text-[color:var(--neutral-faint)]" />
@@ -120,8 +134,17 @@ export function Step2Photos({ photos, onChange, onBack, onNext }: Props) {
   };
 
   const handleSelect = (id: PhotoSlotId) => (file: File) => {
+    // Revoke any previous object URL for this slot before replacing it
+    if (photos[id]?.url) URL.revokeObjectURL(photos[id]!.url);
     const url = URL.createObjectURL(file);
     onChange({ ...photos, [id]: { url, name: file.name, file } });
+  };
+
+  const handleRemove = (id: PhotoSlotId) => () => {
+    if (photos[id]?.url) URL.revokeObjectURL(photos[id]!.url);
+    const next = { ...photos };
+    delete next[id];
+    onChange(next);
   };
 
   return (
@@ -166,6 +189,7 @@ export function Step2Photos({ photos, onChange, onBack, onNext }: Props) {
             slot={s}
             photo={photos[s.id]}
             onSelect={handleSelect(s.id)}
+            onRemove={handleRemove(s.id)}
           />
         ))}
       </div>
