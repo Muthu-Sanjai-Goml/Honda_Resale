@@ -143,7 +143,11 @@ export function Step1Details({ initial, onSubmit }: Props) {
           <Field label="Variant" required error={fieldError("variant")}>
             <input
               className={inputClass}
-              placeholder='e.g. "ZX CVT", "VX", "Standard"'
+              placeholder={
+                isTwoWheeler
+                  ? 'e.g. "6G", "5G", "4G", "Standard"'
+                  : 'e.g. "ZX", "V", "VX"'
+              }
               value={d.variant}
               onChange={(e) => set("variant", e.target.value)}
             />
