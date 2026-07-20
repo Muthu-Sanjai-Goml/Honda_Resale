@@ -73,12 +73,21 @@ export function Step1Details({ initial, onSubmit }: Props) {
   // Two-wheelers skip fuel & transmission — sent as Petrol / Automatic by default
   if (!isTwoWheeler) required.push("fuel", "transmission");
 
-  const missing = required.filter((k) => !d[k]);
+  const missing = required.filter((k) => !String(d[k]).trim());
   const lastServiceInFuture = !!d.lastService && d.lastService > CURRENT_MONTH;
+  const lastServiceBeforeRegistration =
+    !!d.lastService && !!d.year && d.lastService.slice(0, 4) < d.year;
+  const odometerInvalid =
+    !!d.odometer && (!Number.isFinite(Number(d.odometer)) || Number(d.odometer) <= 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (missing.length > 0 || lastServiceInFuture) {
+    if (
+      missing.length > 0 ||
+      lastServiceInFuture ||
+      lastServiceBeforeRegistration ||
+      odometerInvalid
+    ) {
       setShowErrors(true);
       return;
     }
@@ -185,6 +194,8 @@ export function Step1Details({ initial, onSubmit }: Props) {
               <input
                 type="number"
                 inputMode="numeric"
+                min="1"
+                step="1"
                 className={inputClass + " pr-12"}
                 placeholder="e.g. 35,000"
                 value={d.odometer}
@@ -214,6 +225,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
               type="month"
               className={inputClass}
               value={d.lastService}
+              min={d.year ? `${d.year}-01` : undefined}
               max={CURRENT_MONTH}
               onChange={(e) => set("lastService", e.target.value)}
             />
@@ -262,6 +274,18 @@ export function Step1Details({ initial, onSubmit }: Props) {
       {showErrors && lastServiceInFuture && (
         <div className="rounded-[8px] border border-[color:var(--score-red)]/30 bg-[color:var(--score-red)]/5 px-4 py-3 text-[13px] text-[color:var(--score-red)]">
           Last Service Date cannot be in the future.
+        </div>
+      )}
+
+      {showErrors && lastServiceBeforeRegistration && (
+        <div className="rounded-[8px] border border-[color:var(--score-red)]/30 bg-[color:var(--score-red)]/5 px-4 py-3 text-[13px] text-[color:var(--score-red)]">
+          Last Service Date cannot be before the registration year.
+        </div>
+      )}
+
+      {showErrors && odometerInvalid && (
+        <div className="rounded-[8px] border border-[color:var(--score-red)]/30 bg-[color:var(--score-red)]/5 px-4 py-3 text-[13px] text-[color:var(--score-red)]">
+          Please enter a valid odometer reading.
         </div>
       )}
 
