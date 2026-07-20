@@ -5,14 +5,27 @@ type Props = {
   required?: boolean;
   children: ReactNode;
   hint?: string;
+  error?: boolean;
   className?: string;
 };
 
-export function Field({ label, required, children, hint, className = "" }: Props) {
+export function Field({
+  label,
+  required,
+  children,
+  hint,
+  error,
+  className = "",
+}: Props) {
+  const errorFieldClass = error
+    ? " [&_input]:border-[color:var(--score-red)] [&_select]:border-[color:var(--score-red)] [&_textarea]:border-[color:var(--score-red)]"
+    : "";
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex flex-col gap-2 ${className}${errorFieldClass}`}>
       <label className="section-label">
-        {label}
+        <span className={error ? "text-[color:var(--score-red)]" : ""}>
+          {label}
+        </span>
         {required && <span className="ml-1 text-[color:var(--honda-red)]">*</span>}
       </label>
       {children}

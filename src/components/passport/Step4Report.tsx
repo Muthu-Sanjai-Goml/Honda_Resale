@@ -161,7 +161,7 @@ export function Step4Report({ report }: { report: ValuationReport }) {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         
         {/* Left Column: AI Confidence */}
-        <div className="md:col-span-5 hvp-card p-6 border border-[color:var(--neutral-line)] bg-white flex flex-col justify-between gap-6 shadow-sm">
+        <div className="md:col-span-6 hvp-card p-6 border border-[color:var(--neutral-line)] bg-white flex flex-col justify-between gap-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div>
               <span className="section-label">Confidence Analysis</span>
@@ -216,7 +216,7 @@ export function Step4Report({ report }: { report: ValuationReport }) {
         </div>
 
         {/* Right Column: Depreciation Visualizer */}
-        <div className="md:col-span-7 hvp-card p-6 border border-[color:var(--neutral-line)] bg-white flex flex-col justify-between gap-6 shadow-sm">
+        <div className="md:col-span-6 hvp-card p-6 border border-[color:var(--neutral-line)] bg-white flex flex-col justify-between gap-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div>
               <span className="section-label">Asset Depreciation</span>
@@ -225,37 +225,38 @@ export function Step4Report({ report }: { report: ValuationReport }) {
             <ArrowDownRight size={18} className="text-gray-400" />
           </div>
 
-          <div className="space-y-4 my-auto">
+          <div className="space-y-5 my-auto">
             {baseValueNew ? (
               <>
+                {/* Focal figure — mirrors the left gauge */}
+                <div className="flex flex-col items-center py-2">
+                  <span className="font-display text-[32px] font-black leading-none text-emerald-600">
+                    {100 - (appliedDepr || 0)}%
+                  </span>
+                  <span className="text-[9px] font-semibold text-[color:var(--neutral-faint)] uppercase tracking-wider mt-1">
+                    Value Retained
+                  </span>
+                </div>
+
                 {/* Horizontal Retention Bar */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[11px] font-medium">
-                    <span className="text-[color:var(--neutral-muted)]">Value Retained: {100 - (appliedDepr || 0)}%</span>
-                    <span className="text-[color:var(--honda-red)] font-semibold">Depreciated: {appliedDepr}%</span>
+                    <span className="text-emerald-600 font-semibold">
+                      Retained: {100 - (appliedDepr || 0)}%
+                    </span>
+                    <span className="text-[color:var(--honda-red)] font-semibold">
+                      Depreciated: {appliedDepr}%
+                    </span>
                   </div>
                   <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden flex">
-                    <div 
-                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500" 
-                      style={{ width: `${100 - (appliedDepr || 0)}%` }} 
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
+                      style={{ width: `${100 - (appliedDepr || 0)}%` }}
                     />
-                    <div 
-                      className="h-full bg-rose-100 border-l border-white" 
-                      style={{ width: `${appliedDepr}%` }} 
+                    <div
+                      className="h-full bg-rose-100 border-l border-white"
+                      style={{ width: `${appliedDepr}%` }}
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="rounded-[6px] border border-gray-100 p-2.5 bg-gray-50/50">
-                    <span className="text-[9px] uppercase tracking-wider text-[color:var(--neutral-muted)] font-semibold block">Base Value New</span>
-                    <span className="font-display text-[16px] font-bold text-[color:var(--slate-ink)] mt-0.5 block">{formatCurrency(baseValueNew)}</span>
-                  </div>
-                  <div className="rounded-[6px] border border-gray-100 p-2.5 bg-gray-50/50">
-                    <span className="text-[9px] uppercase tracking-wider text-[color:var(--neutral-muted)] font-semibold block">Total Depreciation</span>
-                    <span className="font-display text-[16px] font-bold text-rose-600 mt-0.5 block">
-                      -{formatCurrency(baseValueNew - pointPrice)} ({appliedDepr}%)
-                    </span>
                   </div>
                 </div>
               </>

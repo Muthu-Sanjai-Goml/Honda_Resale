@@ -9,7 +9,7 @@ export type VehicleDetails = {
   model: string;
   variant: string;
   year: string;
-  fuel: "Petrol" | "Diesel" | "CNG" | "Electric" | "";
+  fuel: "Petrol" | "Diesel" | "Hybrid" | "";
   transmission: "Manual" | "Automatic" | "";
   odometer: string;
   owners: "1st Owner" | "2nd Owner" | "3rd+ Owner" | "";
@@ -23,17 +23,6 @@ const MODELS_BY_TYPE = {
   "Two-Wheeler": ["Honda Activa"],
   "Four-Wheeler": ["Honda City"],
 } as const;
-const CITIES = [
-  "Mumbai",
-  "Delhi",
-  "Bengaluru",
-  "Chennai",
-  "Hyderabad",
-  "Pune",
-  "Ahmedabad",
-  "Kolkata",
-  "Other",
-];
 const CURRENT_YEAR = new Date().getFullYear();
 const EARLIEST_YEAR = 2015;
 const YEARS = Array.from({ length: CURRENT_YEAR - EARLIEST_YEAR + 1 }, (_, i) =>
@@ -67,7 +56,6 @@ export function Step1Details({ initial, onSubmit }: Props) {
     "odometer",
     "owners",
     "service",
-    "lastService",
     "city",
   ];
   // Two-wheelers skip fuel & transmission — sent as Petrol / Automatic by default
@@ -79,6 +67,16 @@ export function Step1Details({ initial, onSubmit }: Props) {
     !!d.lastService && !!d.year && d.lastService.slice(0, 4) < d.year;
   const odometerInvalid =
     !!d.odometer && (!Number.isFinite(Number(d.odometer)) || Number(d.odometer) <= 0);
+
+  // Per-field error state for highlighting the specific field(s) at fault
+  const fieldError = (k: keyof VehicleDetails) =>
+    showErrors && missing.includes(k);
+  const odometerError = showErrors && (missing.includes("odometer") || odometerInvalid);
+  const lastServiceError =
+    showErrors &&
+    (missing.includes("lastService") ||
+      lastServiceInFuture ||
+      lastServiceBeforeRegistration);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +100,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
       <section className="space-y-6">
         <div className="section-label">Vehicle Information</div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Field label="Vehicle Type" required>
+          <Field label="Vehicle Type" required error={fieldError("vehicleType")}>
             <SegmentedToggle
               options={["Two-Wheeler", "Four-Wheeler"] as const}
               value={d.vehicleType}
@@ -125,7 +123,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
               Honda
             </div>
           </Field>
-          <Field label="Model" required>
+          <Field label="Model" required error={fieldError("model")}>
             <select
               className={inputClass}
               value={d.model}
@@ -142,7 +140,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
               ))}
             </select>
           </Field>
-          <Field label="Variant" required>
+          <Field label="Variant" required error={fieldError("variant")}>
             <input
               className={inputClass}
               placeholder='e.g. "ZX CVT", "VX", "Standard"'
@@ -150,7 +148,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
               onChange={(e) => set("variant", e.target.value)}
             />
           </Field>
-          <Field label="Registration Year" required>
+          <Field label="Registration Year" required error={fieldError("year")}>
             <select
               className={inputClass}
               value={d.year}
@@ -165,16 +163,21 @@ export function Step1Details({ initial, onSubmit }: Props) {
             </select>
           </Field>
           {!isTwoWheeler && (
-            <Field label="Fuel Type" required>
+            <Field label="Fuel Type" required error={fieldError("fuel")}>
               <SegmentedToggle
-                options={["Petrol", "Diesel", "CNG", "Electric"] as const}
+                options={["Petrol", "Diesel", "Hybrid"] as const}
                 value={d.fuel}
                 onChange={(v) => set("fuel", v)}
               />
             </Field>
           )}
           {!isTwoWheeler && (
-            <Field label="Transmission" required className="md:col-span-2">
+            <Field
+              label="Transmission"
+              required
+              error={fieldError("transmission")}
+              className="md:col-span-2"
+            >
               <SegmentedToggle
                 options={["Manual", "Automatic"] as const}
                 value={d.transmission}
@@ -189,7 +192,7 @@ export function Step1Details({ initial, onSubmit }: Props) {
       <section className="space-y-6">
         <div className="section-label">Usage &amp; History</div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Field label="Current Odometer Reading" required>
+          <Field label="Current Odometer Reading" required error={odometerError}>
             <div className="relative">
               <input
                 type="number"
@@ -206,21 +209,26 @@ export function Step1Details({ initial, onSubmit }: Props) {
               </span>
             </div>
           </Field>
-          <Field label="Number of Owners" required>
+          <Field label="Number of Owners" required error={fieldError("owners")}>
             <PillSelect
               options={["1st Owner", "2nd Owner", "3rd+ Owner"] as const}
               value={d.owners}
               onChange={(v) => set("owners", v)}
             />
           </Field>
-          <Field label="Service History" required className="md:col-span-2">
+          <Field
+            label="Service History"
+            required
+            error={fieldError("service")}
+            className="md:col-span-2"
+          >
             <PillSelect
               options={["All Honda ASC", "Mixed", "Local Only", "No Records"] as const}
               value={d.service}
               onChange={(v) => set("service", v)}
             />
           </Field>
-          <Field label="Last Service Date" required>
+          <Field label="Last Service Date" error={lastServiceError}>
             <input
               type="month"
               className={inputClass}
@@ -248,19 +256,13 @@ export function Step1Details({ initial, onSubmit }: Props) {
       <section className="space-y-6">
         <div className="section-label">Location</div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Field label="City" required>
-            <select
+          <Field label="City" required error={fieldError("city")}>
+            <input
               className={inputClass}
+              placeholder="e.g. Bengaluru"
               value={d.city}
               onChange={(e) => set("city", e.target.value)}
-            >
-              <option value="">Select city</option>
-              {CITIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
         </div>
       </section>
