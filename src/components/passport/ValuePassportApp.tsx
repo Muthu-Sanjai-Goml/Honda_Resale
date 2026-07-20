@@ -48,11 +48,12 @@ export function ValuePassportApp({ onDone }: Props) {
     try {
       const report = await submitVehicleValuation(details, photos);
       setGeneratedReport(report);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Keep the technical detail in the console for debugging; show the user a friendly message.
       console.error("Valuation failed:", err);
-      const msg = err?.response?.data?.message || err?.message || "Connection error";
+      const msg = "We couldn't generate your valuation. Please check your connection and try again.";
       setValuationError(msg);
-      toast.error(`Valuation API call failed: ${msg}.`);
+      toast.error(msg);
     }
   };
 
@@ -138,8 +139,7 @@ export function ValuePassportApp({ onDone }: Props) {
                   </h2>
                   
                   <div className="w-full max-w-[460px] rounded-[8px] border border-[color:var(--score-red)]/20 bg-[color:var(--score-red)]/5 p-4 text-[14px] text-[color:var(--score-red)]">
-                    <p className="font-semibold mb-1 text-left">API Error Details:</p>
-                    <p className="font-mono text-[12px] break-all text-left">{valuationError}</p>
+                    <p className="text-center">{valuationError}</p>
                   </div>
                   
                   <div className="flex gap-4 mt-2">
